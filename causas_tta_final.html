@@ -664,7 +664,7 @@
         <div class="panel-header">
           <div class="panel-title">
             <span class="pulse-dot"></span>
-            Plazos próximos a vencer
+            Vencimientos hoy
           </div>
           <div id="fecha-hoy" style="font-size:0.65rem;font-family:'JetBrains Mono',monospace;color:var(--text3)"></div>
         </div>
@@ -698,8 +698,9 @@
                 <th onclick="sortBy('rit','pendientes')">RIT / Rol</th>
                 <th onclick="sortBy('nombre','pendientes')">Nombre / Razón Social</th>
                 <th onclick="sortBy('procedimiento','pendientes')">Procedimiento</th>
-                <th onclick="sortBy('etapa','pendientes')">Etapa</th>
-                <th onclick="sortBy('proximoVencimiento','pendientes')">Próx. Vencimiento</th>
+                <th onclick="sortBy('etapa','pendientes')">Etapa / Gestión</th>
+                <th>Plazo</th>
+                <th onclick="sortBy('proximoVencimiento','pendientes')">Vencimiento</th>
                 <th onclick="sortBy('diasRestantes','pendientes')">Días Restantes</th>
                 <th>Dilig. Pendientes</th>
                 <th onclick="sortBy('abogado','pendientes')">Abogado</th>
@@ -864,15 +865,23 @@
           <textarea id="f-obs" placeholder="Observaciones libres…"></textarea>
         </div>
 
+        <!-- AUDIENCIAS -->
+        <div class="form-group full">
+          <div class="section-divider">Audiencias</div>
+        </div>
+        <div class="form-group full" id="audiencias-container">
+          <div id="audiencias-lista" style="display:flex;flex-direction:column;gap:0.45rem"></div>
+          <button type="button" onclick="agregarAudiencia()" style="margin-top:0.5rem;background:transparent;border:1px dashed var(--border2);border-radius:var(--radius);color:var(--accent);font-family:'Syne',sans-serif;font-size:0.75rem;font-weight:600;padding:0.4rem 0.8rem;cursor:pointer;width:100%;transition:all 0.13s" onmouseover="this.style.background='rgba(0,87,168,0.06)'" onmouseout="this.style.background='transparent'">+ Agregar audiencia</button>
+        </div>
+
         <!-- GESTIONES PROCESALES -->
         <div class="form-group full">
           <div class="section-divider">Gestiones Procesales</div>
         </div>
         <div class="form-group full">
-          <div class="gestion-item" style="flex-wrap:wrap">
+          <div class="gestion-item">
             <input type="checkbox" id="g-delegacion">
             <span class="gestion-label">Delegación de poder presentada</span>
-            <input type="date" id="g-delegacion-fecha" class="gestion-fecha">
           </div>
           <input type="text" id="g-delegacion-apoderado" placeholder="Nombre del apoderado" style="margin-top:0.35rem;font-size:0.78rem">
         </div>
@@ -880,21 +889,18 @@
           <div class="gestion-item">
             <input type="checkbox" id="g-testigos">
             <span class="gestion-label">Lista de testigos presentada</span>
-            <input type="date" id="g-testigos-fecha" class="gestion-fecha">
           </div>
         </div>
         <div class="form-group full">
           <div class="gestion-item">
             <input type="checkbox" id="g-correo">
             <span class="gestion-label">Correo a testigos enviado</span>
-            <input type="date" id="g-correo-fecha" class="gestion-fecha">
           </div>
         </div>
         <div class="form-group full">
           <div class="gestion-item">
             <input type="checkbox" id="g-documentos">
             <span class="gestion-label">Documentos probatorios presentados</span>
-            <input type="date" id="g-documentos-fecha" class="gestion-fecha">
           </div>
         </div>
 
@@ -1540,65 +1546,44 @@ const UMBRAL = 7;
 
 function renderAlertas() {
   const hoy = new Date(); hoy.setHours(0,0,0,0);
-  document.getElementById('fecha-hoy').textContent = 'Hoy: ' + formatFecha(toISO(hoy));
+  const hoyISO = toISO(hoy);
+  document.getElementById('fecha-hoy').textContent = 'Hoy: ' + formatFecha(hoyISO);
 
   const alertas = [];
   causas.forEach(c => {
     calcularPlazosParaCausa(c).forEach(p => {
       if (!p.fecha) return;
-      if (c.plazoscumplidos?.[p.key]) return; // excluir cumplidos
-      const dr = diasHabilesRestantes(p.fecha);
-      if (dr === null) {
-        // Vencido: solo mostrar si <= UMBRAL_VENCIDO dh
-        const hoy = new Date(); hoy.setHours(0,0,0,0);
-        const v = fromISO(p.fecha);
-        let dv = 0, cur = new Date(v); cur.setDate(cur.getDate()+1);
-        while (cur <= hoy) { if (esDiaHabil(cur)) dv++; cur.setDate(cur.getDate()+1); }
-        if (dv <= 2) alertas.push({ causa:c, plazo:p, dias:-dv });
-      } else if (dr <= UMBRAL) {
-        alertas.push({ causa:c, plazo:p, dias:dr });
+      if (c.plazoscumplidos?.[p.key]) return;
+      // Solo plazos que vencen exactamente hoy
+      if (p.fecha === hoyISO) {
+        alertas.push({ causa: c, plazo: p });
       }
     });
   });
-  alertas.sort((a,b) => a.dias - b.dias);
 
   const cont = document.getElementById('alertas-container');
   if (!alertas.length) {
-    cont.innerHTML = '<div class="no-alerts">Sin plazos próximos (≤ 7 días hábiles de oficina)</div>';
+    cont.innerHTML = '<div class="no-alerts">Sin vencimientos para hoy</div>';
     return;
   }
 
-  const MAX_VISIBLE = 10;
-  const visibles = alertas.slice(0, MAX_VISIBLE);
-  const resto = alertas.length - MAX_VISIBLE;
-
-  const cards = visibles.map(a => {
-    const cls = a.dias <= 0 ? 'urgente' : a.dias <= 3 ? 'proximo' : 'normal';
-    const badge = a.dias < 0  ? `VENCIDO ${-a.dias}dh`
-                : a.dias === 0 ? 'HOY'
-                : a.dias === 1 ? 'ÚLTIMO DÍA'
-                : `${a.dias} dh`;
-    const sabNote = a.plazo.esSabado ? ' <span style="color:var(--danger);font-weight:700;font-size:0.58rem">(SÁB)</span>' : '';
+  const cards = alertas.map(a => {
     const ab = ABOGADOS[a.causa.abogado] || ABOGADOS['Genérico'];
-    return `<div class="alert-card ${cls}" onclick="verDetalle('${a.causa.id}')">
+    return `<div class="alert-card urgente" onclick="verDetalle('${a.causa.id}')">
       <div>
-        <div class="alert-badge">${badge}</div>
+        <div class="alert-badge" style="color:var(--danger)">HOY</div>
         <div class="alert-abogado" style="color:${ab.color}">${a.causa.abogado}</div>
         <div class="alert-nombre">${a.causa.nombre}</div>
         <div class="alert-rit">${a.causa.rit}</div>
       </div>
       <div>
         <div class="alert-hito">${a.plazo.nombre}</div>
-        <div class="alert-hito">${formatFecha(a.plazo.fecha)}${sabNote}</div>
+        <div class="alert-hito">${formatFecha(a.plazo.fecha)}</div>
       </div>
     </div>`;
   }).join('');
 
-  const verMasBtn = resto > 0
-    ? `<button class="alert-ver-mas" onclick="switchTab('pendientes')">Ver ${resto} más en Pendientes ↓</button>`
-    : '';
-
-  cont.innerHTML = `<div class="alerts-grid">${cards}</div>${verMasBtn}`;
+  cont.innerHTML = `<div class="alerts-grid">${cards}</div>`;
 }
 
 // ══════════════════════════════════════════════
@@ -1663,70 +1648,66 @@ function chipDias(dr) {
 function renderPendientes() {
   const busq = (document.getElementById('filtro-busqueda')?.value || '').toLowerCase();
   const abog = document.getElementById('filtro-abogado')?.value || '';
-  const s = sortState.pendientes;
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const hoyISO = toISO(hoy);
 
-  // Solo causas con plazos vigentes o vencidos <= UMBRAL_VENCIDO dh de oficina
-  let lista = causas.filter(c => {
-    if (busq && !`${c.rit} ${c.rut} ${c.nombre}`.toLowerCase().includes(busq)) return false;
-    if (abog && c.abogado !== abog) return false;
-    const pv = proximoVencimiento(c);
-    if (!pv.fecha) return false;
-    const dr = diasHabilesRestantes(pv.fecha);
-    if (dr === null) {
-      // Vencido: solo mostrar si vencido hace <= UMBRAL_VENCIDO dh de oficina
-      const hoy = new Date(); hoy.setHours(0,0,0,0);
-      const v = fromISO(pv.fecha);
-      let diasVencido = 0, cur = new Date(v);
-      cur.setDate(cur.getDate()+1);
-      while (cur <= hoy) { if (esDiaHabil(cur)) diasVencido++; cur.setDate(cur.getDate()+1); }
-      return diasVencido <= 2;
-    }
-    return true;
-  }).map(c => {
-    const pv = proximoVencimiento(c);
-    const dr = pv.fecha ? diasHabilesRestantes(pv.fecha) : null;
-    return { ...c, _pv: pv, diasRestantes: dr };
+  // Calcular segundo día hábil siguiente a hoy (límite para mostrar vencidos)
+  let limiteVencidos = new Date(hoy);
+  let dhContados = 0;
+  while (dhContados < 2) {
+    limiteVencidos.setDate(limiteVencidos.getDate() + 1);
+    if (esDiaHabil(limiteVencidos)) dhContados++;
+  }
+  const limiteVencidosISO = toISO(limiteVencidos);
+
+  // Construir filas: una por plazo
+  const filas = [];
+  causas.forEach(c => {
+    if (busq && !`${c.rit} ${c.rut} ${c.nombre}`.toLowerCase().includes(busq)) return;
+    if (abog && c.abogado !== abog) return;
+    const plazos = calcularPlazosParaCausa(c);
+    plazos.forEach(p => {
+      if (!p.fecha) return;
+      if (c.plazoscumplidos?.[p.key]) return;
+      // Mostrar: futuros + hoy + vencidos hasta el 2° día hábil siguiente
+      if (p.fecha < hoyISO && p.fecha < limiteVencidosISO) return;
+      const dr = diasHabilesRestantes(p.fecha);
+      filas.push({ causa: c, plazo: p, dr });
+    });
   });
 
-  lista.sort((a,b) => {
-    if (s.col === 'diasRestantes') {
-      const va = a.diasRestantes, vb = b.diasRestantes;
-      if (va === null && vb === null) return 0;
-      if (va === null) return 1; if (vb === null) return -1;
-      return s.asc ? va - vb : vb - va;
-    }
-    let va = a[s.col]||'', vb = b[s.col]||'';
-    return s.asc ? (va<vb?-1:va>vb?1:0) : (va>vb?-1:va<vb?1:0);
+  // Ordenar por fecha de plazo ascendente
+  filas.sort((a, b) => {
+    if (a.plazo.fecha < b.plazo.fecha) return -1;
+    if (a.plazo.fecha > b.plazo.fecha) return 1;
+    return (a.causa.rit || '').localeCompare(b.causa.rit || '');
   });
 
-  document.getElementById('pendientes-count').textContent = `${lista.length} causa${lista.length!==1?'s':''}`;
+  document.getElementById('pendientes-count').textContent = `${filas.length} plazo${filas.length !== 1 ? 's' : ''}`;
 
   const body = document.getElementById('pendientes-body');
-  if (!lista.length) {
-    body.innerHTML = '<tr><td colspan="8" class="empty-table">Sin causas con plazos vigentes</td></tr>';
+  if (!filas.length) {
+    body.innerHTML = '<tr><td colspan="8" class="empty-table">Sin plazos vigentes</td></tr>';
     return;
   }
 
-  body.innerHTML = lista.map(c => {
+  body.innerHTML = filas.map(({ causa: c, plazo: p, dr }) => {
     const ab = ABOGADOS[c.abogado] || ABOGADOS['Genérico'];
     const procNombre  = PROCEDIMIENTOS[c.procedimiento]?.nombre || '—';
     const etapaNombre = getEtapaNombre(c.procedimiento, c.etapa) || '—';
-    const pv = c._pv;
-    const sabNote = pv.esSabado ? ` <span style="color:var(--danger);font-weight:700;font-size:0.6rem">(SÁB)</span>` : '';
-    const fechaCol = pv.fecha ? formatFecha(pv.fecha) + sabNote : '—';
-
-    // Avance automático de etapa con botón
+    const sabNote = p.esSabado ? ` <span style="color:var(--danger);font-weight:700;font-size:0.6rem">(SÁB)</span>` : '';
+    const fechaCol = formatFecha(p.fecha) + sabNote;
     const avance = verificarAvanceEtapa(c);
     const avanceBtn = avance ? `<button class="btn-avance" onclick="event.stopPropagation();avanzarEtapa('${c.id}')">↑ avanzar etapa</button>` : '';
 
     return `<tr onclick="verDetalle('${c.id}')">
-      <td class="rit">${c.rit||'—'}</td>
-      <td class="nombre">${c.nombre||'—'}</td>
+      <td class="rit">${c.rit || '—'}</td>
+      <td class="nombre">${c.nombre || '—'}</td>
       <td style="font-size:0.7rem;color:var(--text2)">${procNombre}</td>
       <td><span class="etapa-badge">${etapaNombre}</span> ${avanceBtn}</td>
+      <td class="plazo" style="font-size:0.72rem;color:var(--text2)">${p.nombre}</td>
       <td class="plazo">${fechaCol}</td>
-      <td>${chipDias(c.diasRestantes)}</td>
-      <td>${diligIconos(c)}</td>
+      <td>${chipDias(dr)}</td>
       <td><span class="abogado-chip" style="color:${ab.color};background:${ab.bg}">${c.abogado}</span></td>
     </tr>`;
   }).join('');
@@ -1797,6 +1778,65 @@ function getEtapaNombre(proc, etapa) {
 // ══════════════════════════════════════════════
 // FORMULARIO
 // ══════════════════════════════════════════════
+// ══════════════════════════════════════════════
+// AUDIENCIAS
+// ══════════════════════════════════════════════
+const AUDIENCIAS_POR_PROC = {
+  general:      ['Conciliación (post-traslado, art. 131 bis CT)', 'Conciliación (post-observaciones, a petición de parte)', 'Prueba testimonial', 'Percepción documental (art. 348 bis CPC)', 'Exhibición de documentos', 'Informe de peritos', 'Otra'],
+  vulneracion:  ['Prueba testimonial', 'Exhibición de documentos', 'Otra'],
+  infraccional: ['Prueba testimonial', 'Exhibición de documentos', 'Otra'],
+  acta_denuncia:['Prueba testimonial', 'Exhibición de documentos', 'Otra'],
+  ica_apelacion:['Vista de la causa (alegatos)', 'Otra'],
+  otro:         ['Otra'],
+};
+
+function getTiposAudiencia() {
+  const proc = document.getElementById('f-procedimiento')?.value || '';
+  return AUDIENCIAS_POR_PROC[proc] || ['Otra'];
+}
+
+function agregarAudiencia(datos) {
+  const tipos = getTiposAudiencia();
+  const opciones = tipos.map(t => `<option value="${t}">${t}</option>`).join('');
+  const idx = document.getElementById('audiencias-lista').children.length;
+  const tipo  = datos?.tipo  || '';
+  const fecha = datos?.fecha || '';
+  const nota  = datos?.nota  || '';
+  const opcionesConSeleccion = tipos.map(t => `<option value="${t}" ${t === tipo ? 'selected' : ''}>${t}</option>`).join('');
+
+  const row = document.createElement('div');
+  row.className = 'gestion-item';
+  row.style.cssText = 'flex-wrap:wrap;gap:0.45rem;align-items:center';
+  row.innerHTML = `
+    <select style="flex:2;min-width:180px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:'Syne',sans-serif;font-size:0.78rem;padding:0.45rem 0.6rem">
+      <option value="">— Tipo de audiencia —</option>
+      ${opcionesConSeleccion}
+    </select>
+    <input type="date" value="${fecha}" style="flex:1;min-width:130px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:'Syne',sans-serif;font-size:0.78rem;padding:0.45rem 0.6rem">
+    <input type="text" value="${nota}" placeholder="Nota (opcional)" style="flex:3;min-width:140px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:'Syne',sans-serif;font-size:0.78rem;padding:0.45rem 0.6rem">
+    <button type="button" onclick="this.parentElement.remove()" style="background:transparent;border:none;color:var(--danger);font-size:0.9rem;cursor:pointer;padding:0.2rem 0.4rem;border-radius:3px" title="Eliminar">✕</button>
+  `;
+  document.getElementById('audiencias-lista').appendChild(row);
+}
+
+function cargarAudiencias(lista) {
+  document.getElementById('audiencias-lista').innerHTML = '';
+  (lista || []).forEach(a => agregarAudiencia(a));
+}
+
+function leerAudiencias() {
+  const filas = document.getElementById('audiencias-lista').children;
+  const result = [];
+  for (const fila of filas) {
+    const inputs = fila.querySelectorAll('select, input');
+    const tipo  = inputs[0]?.value || '';
+    const fecha = inputs[1]?.value || '';
+    const nota  = inputs[2]?.value || '';
+    if (tipo || fecha) result.push({ tipo, fecha, nota });
+  }
+  return result;
+}
+
 function abrirModalNueva() {
   editingId = null;
   document.getElementById('modal-causa-title').textContent = 'Nueva Causa';
@@ -1826,9 +1866,8 @@ function limpiarFormulario() {
   ['g-delegacion','g-testigos','g-correo','g-documentos'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.checked = false;
-    const fel = document.getElementById(id+'-fecha');
-    if (fel) fel.value = '';
   });
+  document.getElementById('audiencias-lista').innerHTML = '';
 }
 
 function onProcedimientoChange() {
@@ -2002,11 +2041,12 @@ async function guardarCausa() {
     diasPersonalizados: diasEl ? parseInt(diasEl.value || '0') : null,
     observaciones: document.getElementById('f-obs').value.trim(),
     gestiones: {
-      delegacion: { hecho: document.getElementById('g-delegacion').checked, fecha: document.getElementById('g-delegacion-fecha').value, apoderado: document.getElementById('g-delegacion-apoderado').value.trim() },
-      testigos:   { hecho: document.getElementById('g-testigos').checked,   fecha: document.getElementById('g-testigos-fecha').value },
-      correo:     { hecho: document.getElementById('g-correo').checked,     fecha: document.getElementById('g-correo-fecha').value },
-      documentos: { hecho: document.getElementById('g-documentos').checked, fecha: document.getElementById('g-documentos-fecha').value },
+      delegacion: { hecho: document.getElementById('g-delegacion').checked, apoderado: document.getElementById('g-delegacion-apoderado').value.trim() },
+      testigos:   { hecho: document.getElementById('g-testigos').checked },
+      correo:     { hecho: document.getElementById('g-correo').checked },
+      documentos: { hecho: document.getElementById('g-documentos').checked },
     },
+    audiencias: leerAudiencias(),
     ajustesPlazos: editingId ? (causas.find(c=>c.id===editingId)?.ajustesPlazos || {}) : {},
     creadoEn: editingId ? (causas.find(c=>c.id===editingId)?.creadoEn || new Date().toISOString()) : new Date().toISOString(),
   };
@@ -2089,10 +2129,17 @@ function verDetalle(id) {
     return `<div class="gestion-item">
       <input type="checkbox" ${g.hecho?'checked':''} disabled>
       <span class="gestion-label">${label}${extra||''}</span>
-      ${g.hecho && g.fecha ? `<span style="font-family:'JetBrains Mono',monospace;font-size:0.68rem;color:var(--text2)">${formatFecha(g.fecha)}</span>` : ''}
     </div>`;
   };
   const apoderadoExtra = c.gestiones?.delegacion?.apoderado ? ` — <span style="color:var(--text2)">${c.gestiones.delegacion.apoderado}</span>` : '';
+
+  const audienciasHtml = (c.audiencias || []).length
+    ? (c.audiencias || []).map(a => `
+        <div class="plazo-row">
+          <span class="plazo-row-nombre">${a.tipo || '—'}${a.nota ? ` <span style="color:var(--text3);font-size:0.68rem">— ${a.nota}</span>` : ''}</span>
+          <span class="plazo-row-fecha">${a.fecha ? formatFecha(a.fecha) : '—'}</span>
+        </div>`).join('')
+    : '<div style="color:var(--text3);font-size:0.76rem;font-family:\'JetBrains Mono\',monospace">Sin audiencias registradas</div>';
 
   document.getElementById('modal-detalle-body').innerHTML = `
     <div class="detalle-section">
@@ -2115,7 +2162,7 @@ function verDetalle(id) {
           <span class="detalle-field-value" style="font-size:0.76rem">${procNombre}</span>
         </div>
         <div class="detalle-field">
-          <span class="detalle-field-label">Etapa</span>
+          <span class="detalle-field-label">Etapa / Gestión</span>
           <span class="detalle-field-value"><span class="etapa-badge">${etapaNombre}</span></span>
         </div>
         <div class="detalle-field">
@@ -2139,6 +2186,11 @@ function verDetalle(id) {
       <div class="detalle-section-title">Observaciones</div>
       <div style="font-size:0.8rem;color:var(--text2);line-height:1.65;white-space:pre-wrap">${c.observaciones}</div>
     </div>` : ''}
+
+    <div class="detalle-section">
+      <div class="detalle-section-title">Audiencias</div>
+      ${audienciasHtml}
+    </div>
 
     <div class="detalle-section">
       <div class="detalle-section-title">Gestiones Procesales</div>
@@ -2203,11 +2255,11 @@ function abrirEditar(id) {
   ['delegacion','testigos','correo','documentos'].forEach(k => {
     const el = document.getElementById('g-'+k);
     if (el) el.checked = g[k]?.hecho || false;
-    const fel = document.getElementById('g-'+k+'-fecha');
-    if (fel) fel.value = g[k]?.fecha || '';
   });
   const apod = document.getElementById('g-delegacion-apoderado');
   if (apod) apod.value = g.delegacion?.apoderado || '';
+
+  cargarAudiencias(c.audiencias || []);
 
   document.getElementById('modal-causa').classList.add('open');
 }
