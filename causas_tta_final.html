@@ -1175,7 +1175,7 @@ async function guardarStorage() {
   localStorage.setItem('causas_tta_v2', JSON.stringify(causas));
   if (!USAR_SHEET || !getScriptURL()) return;
   const causaAGuardar = editingId
-    ? causas.find(c => c.id === editingId)
+    ? causas.find(c => String(c.id) === String(editingId))
     : causas[causas.length - 1];
   if (!causaAGuardar) return;
   try {
@@ -1192,7 +1192,7 @@ async function guardarStorage() {
 async function sincronizarCausa(id) {
   localStorage.setItem('causas_tta_v2', JSON.stringify(causas));
   if (!USAR_SHEET || !getScriptURL()) return;
-  const causa = causas.find(c => c.id === id);
+  const causa = causas.find(c => String(c.id) === String(id));
   if (!causa) return;
   try {
     await fetch(getScriptURL(), {
@@ -1322,7 +1322,7 @@ async function loginSubmit() {
 
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').classList.add('visible');
-    renderAlertas(); renderTabla();
+    renderAlertas(); renderPendientes(); renderExpedientes();
   } catch (err) {
     errEl.textContent = 'Error al conectar. Verifica la URL.';
     console.error(err);
@@ -1345,7 +1345,8 @@ function toISO(d) {
 }
 
 function fromISO(s) {
-  const [y,m,d] = s.split('-');
+  const clean = String(s).substring(0, 10); // toma solo "YYYY-MM-DD"
+  const [y,m,d] = clean.split('-');
   return new Date(+y, +m-1, +d);
 }
 
@@ -1403,7 +1404,9 @@ function diasHabilesRestantes(fechaStr) {
 
 function formatFecha(s) {
   if (!s) return '—';
-  const [y,m,d] = s.split('-');
+  const clean = String(s).substring(0, 10);
+  const [y,m,d] = clean.split('-');
+  if (!y || !m || !d) return '—';
   return `${d}/${m}/${y}`;
 }
 
@@ -1773,7 +1776,7 @@ function renderExpedientes() {
 
 // Avance automático de etapa con confirmación
 async function avanzarEtapa(id) {
-  const idx = causas.findIndex(c => c.id === id);
+  const idx = causas.findIndex(c => String(c.id) === String(id));
   if (idx < 0) return;
   const nuevaEtapa = verificarAvanceEtapa(causas[idx]);
   if (!nuevaEtapa) return;
@@ -2009,7 +2012,7 @@ async function guardarCausa() {
   };
 
   if (editingId) {
-    const idx = causas.findIndex(c => c.id === editingId);
+    const idx = causas.findIndex(c => String(c.id) === String(editingId));
     if (idx >= 0) causas[idx] = causa;
   } else {
     causas.push(causa);
@@ -2017,7 +2020,7 @@ async function guardarCausa() {
 
   await guardarStorage();
   cerrarModal('modal-causa');
-  renderAlertas(); renderTabla();
+  renderAlertas(); renderPendientes(); renderExpedientes();
 }
 
 async function eliminarCausa() {
@@ -2027,7 +2030,7 @@ async function eliminarCausa() {
   causas = causas.filter(c => c.id !== idAEliminar);
   await eliminarDelSheet(idAEliminar);
   cerrarModal('modal-causa');
-  renderAlertas(); renderTabla();
+  renderAlertas(); renderPendientes(); renderExpedientes();
 }
 
 // guardarStorage() ahora es async y está definida en la sección CAPA DE PERSISTENCIA.
@@ -2036,7 +2039,7 @@ async function eliminarCausa() {
 // DETALLE
 // ══════════════════════════════════════════════
 function verDetalle(id) {
-  const c = causas.find(x => x.id === id);
+  const c = causas.find(x => String(x.id) === String(id));
   if (!c) return;
   detalleId = id;
 
@@ -2158,7 +2161,7 @@ function editarDesdeDetalle() {
 }
 
 function abrirEditar(id) {
-  const c = causas.find(x => x.id === id);
+  const c = causas.find(x => String(x.id) === String(id));
   if (!c) return;
   editingId = id;
   document.getElementById('modal-causa-title').textContent = 'Editar Causa';
@@ -2216,7 +2219,7 @@ let ajusteActual = { causaId: null, key: null, fechaOriginal: null };
 
 function abrirAjuste(causaId, key, nombre, fechaOriginal, yaAjustado) {
   ajusteActual = { causaId, key, fechaOriginal };
-  const c = causas.find(x => x.id === causaId);
+  const c = causas.find(x => String(x.id) === String(causaId));
   const ajustes = c?.ajustesPlazos || {};
 
   document.getElementById('ajuste-plazo-nombre').textContent = nombre;
@@ -2236,24 +2239,24 @@ async function guardarAjuste() {
   const motivo     = document.getElementById('ajuste-motivo').value.trim();
   if (!nuevaFecha) { alert('Ingresa una fecha.'); return; }
 
-  const idx = causas.findIndex(c => c.id === ajusteActual.causaId);
+  const idx = causas.findIndex(c => String(c.id) === String(ajusteActual.causaId));
   if (idx < 0) return;
   if (!causas[idx].ajustesPlazos) causas[idx].ajustesPlazos = {};
   causas[idx].ajustesPlazos[ajusteActual.key] = { fecha: nuevaFecha, motivo };
 
   await sincronizarCausa(ajusteActual.causaId);
   cerrarAjuste();
-  renderAlertas(); renderTabla();
+  renderAlertas(); renderPendientes(); renderExpedientes();
   verDetalle(ajusteActual.causaId);
 }
 
 async function quitarAjuste() {
-  const idx = causas.findIndex(c => c.id === ajusteActual.causaId);
+  const idx = causas.findIndex(c => String(c.id) === String(ajusteActual.causaId));
   if (idx < 0) return;
   if (causas[idx].ajustesPlazos) delete causas[idx].ajustesPlazos[ajusteActual.key];
   await sincronizarCausa(ajusteActual.causaId);
   cerrarAjuste();
-  renderAlertas(); renderTabla();
+  renderAlertas(); renderPendientes(); renderExpedientes();
   verDetalle(ajusteActual.causaId);
 }
 
@@ -2261,7 +2264,7 @@ async function quitarAjuste() {
 // CUMPLIR PLAZO
 // ══════════════════════════════════════════════
 async function toggleCumplido(causaId, key) {
-  const idx = causas.findIndex(c => c.id === causaId);
+  const idx = causas.findIndex(c => String(c.id) === String(causaId));
   if (idx < 0) return;
   if (!causas[idx].plazoscumplidos) causas[idx].plazoscumplidos = {};
   if (causas[idx].plazoscumplidos[key]) {
