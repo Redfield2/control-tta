@@ -844,19 +844,6 @@
           <input type="date" id="f-resolucion-reposicion" onchange="calcularPlazos()">
         </div>
 
-        <!-- CONCILIACIÓN -->
-        <div class="form-group full" id="conciliacion-group" style="display:none">
-          <div class="section-divider" style="margin-top:0.2rem">Conciliación</div>
-        </div>
-        <div class="form-group" id="conciliacion-fecha-group" style="display:none">
-          <label>1ª audiencia de conciliación</label>
-          <input type="date" id="f-conciliacion">
-        </div>
-        <div class="form-group" id="conciliacion-fecha2-group" style="display:none">
-          <label>2ª audiencia de conciliación (opcional)</label>
-          <input type="date" id="f-conciliacion2">
-        </div>
-
         <!-- OBSERVACIONES -->
         <div class="form-group full" style="margin-top:0.25rem">
           <div class="section-divider" style="margin-top:0.2rem">Observaciones</div>
@@ -1554,9 +1541,12 @@ function renderAlertas() {
     calcularPlazosParaCausa(c).forEach(p => {
       if (!p.fecha) return;
       if (c.plazoscumplidos?.[p.key]) return;
-      // Solo plazos que vencen exactamente hoy
-      if (p.fecha === hoyISO) {
-        alertas.push({ causa: c, plazo: p });
+      if (p.fecha === hoyISO) alertas.push({ causa: c, plazo: p });
+    });
+    // Audiencias de hoy
+    (c.audiencias || []).forEach((a, i) => {
+      if (a.fecha === hoyISO) {
+        alertas.push({ causa: c, plazo: { nombre: a.tipo || 'Audiencia', fecha: a.fecha, key: `aud_${i}` } });
       }
     });
   });
@@ -1669,10 +1659,19 @@ function renderPendientes() {
     plazos.forEach(p => {
       if (!p.fecha) return;
       if (c.plazoscumplidos?.[p.key]) return;
+      // Excluir obs. a la prueba mientras la causa está en período de prueba
+      if (c.etapa === 'auto_prueba' && p.key === 'auto_prueba_postsub') return;
       // Mostrar: futuros + hoy + vencidos hasta el 2° día hábil siguiente
       if (p.fecha < hoyISO && p.fecha < limiteVencidosISO) return;
       const dr = diasHabilesRestantes(p.fecha);
       filas.push({ causa: c, plazo: p, dr });
+    });
+    // Agregar audiencias con fecha como filas adicionales
+    (c.audiencias || []).forEach((a, i) => {
+      if (!a.fecha) return;
+      if (a.fecha < hoyISO && a.fecha < limiteVencidosISO) return;
+      const dr = diasHabilesRestantes(a.fecha);
+      filas.push({ causa: c, plazo: { nombre: a.tipo || 'Audiencia', fecha: a.fecha, esSabado: false, key: `aud_${i}`, ajustado: false }, dr, esAudiencia: true });
     });
   });
 
@@ -1847,7 +1846,7 @@ function abrirModalNueva() {
 
 function limpiarFormulario() {
   ['f-rit','f-rut','f-nombre','f-obs','f-fecha-notif','f-fecha-manual',
-   'f-conciliacion','f-conciliacion2','f-resolucion-reposicion',
+   'f-resolucion-reposicion',
    'g-delegacion-apoderado'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
@@ -1858,7 +1857,7 @@ function limpiarFormulario() {
   document.getElementById('f-abogado').value = 'Felipe';
   document.getElementById('f-etapa').innerHTML = '<option value="">— Seleccionar etapa —</option>';
   ['etapa-group','fecha-notif-group','fecha-manual-group','plazos-group',
-   'conciliacion-group','conciliacion-fecha-group','conciliacion-fecha2-group',
+   
    'reposicion-group','reposicion-fields','reposicion-resolucion-group'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
@@ -1874,7 +1873,7 @@ function onProcedimientoChange() {
   const proc = document.getElementById('f-procedimiento').value;
   document.getElementById('f-etapa').innerHTML = '<option value="">— Seleccionar etapa —</option>';
   ['etapa-group','fecha-notif-group','fecha-manual-group','plazos-group',
-   'conciliacion-group','conciliacion-fecha-group','conciliacion-fecha2-group',
+   
    'reposicion-group','reposicion-fields','reposicion-resolucion-group'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
@@ -1889,12 +1888,6 @@ function onProcedimientoChange() {
     document.getElementById('f-etapa').appendChild(opt);
   });
   document.getElementById('etapa-group').style.display = 'block';
-  document.getElementById('conciliacion-group').style.display = 'block';
-  document.getElementById('conciliacion-fecha-group').style.display = 'block';
-  // Segunda conciliación solo para procedimiento general
-  if (proc === 'general') {
-    document.getElementById('conciliacion-fecha2-group').style.display = 'block';
-  }
 }
 
 function onEtapaChange() {
@@ -2034,8 +2027,6 @@ async function guardarCausa() {
     etapa:         document.getElementById('f-etapa').value,
     fechaNotif:    document.getElementById('f-fecha-notif').value,
     fechaManual:   document.getElementById('f-fecha-manual').value,
-    fechaConciliacion:  document.getElementById('f-conciliacion').value,
-    fechaConciliacion2: document.getElementById('f-conciliacion2')?.value || '',
     reposicionDeducida: document.getElementById('f-reposicion')?.checked || false,
     fechaResolucionReposicion: document.getElementById('f-resolucion-reposicion')?.value || '',
     diasPersonalizados: diasEl ? parseInt(diasEl.value || '0') : null,
@@ -2067,7 +2058,7 @@ async function eliminarCausa() {
   if (!editingId) return;
   if (!confirm('¿Eliminar esta causa? Esta acción no se puede deshacer.')) return;
   const idAEliminar = editingId;
-  causas = causas.filter(c => c.id !== idAEliminar);
+  causas = causas.filter(c => String(c.id) !== String(idAEliminar));
   await eliminarDelSheet(idAEliminar);
   cerrarModal('modal-causa');
   renderAlertas(); renderPendientes(); renderExpedientes();
@@ -2119,9 +2110,7 @@ function verDetalle(id) {
       }).join('')
     : '<div style="color:var(--text3);font-size:0.76rem;font-family:\'JetBrains Mono\',monospace">Sin plazos calculados para esta etapa</div>';
 
-  const concHtml = c.fechaConciliacion
-    ? `<div class="plazo-row"><span class="plazo-row-nombre">Audiencia de conciliación</span><span class="plazo-row-fecha">${formatFecha(c.fechaConciliacion)}</span></div>`
-    : '';
+  const concHtml = '';
 
   const gRow = (k, label, extra) => {
     const g = c.gestiones?.[k];
@@ -2232,9 +2221,6 @@ function abrirEditar(id) {
 
   document.getElementById('f-fecha-notif').value  = c.fechaNotif  || '';
   document.getElementById('f-fecha-manual').value = c.fechaManual || '';
-  document.getElementById('f-conciliacion').value = c.fechaConciliacion || '';
-  const conc2 = document.getElementById('f-conciliacion2');
-  if (conc2) conc2.value = c.fechaConciliacion2 || '';
 
   const repCheck = document.getElementById('f-reposicion');
   if (repCheck) {
