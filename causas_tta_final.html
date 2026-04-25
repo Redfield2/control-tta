@@ -702,12 +702,11 @@
                 <th>Plazo</th>
                 <th onclick="sortBy('proximoVencimiento','pendientes')">Vencimiento</th>
                 <th onclick="sortBy('diasRestantes','pendientes')">Días Restantes</th>
-                <th>Dilig. Pendientes</th>
                 <th onclick="sortBy('abogado','pendientes')">Abogado</th>
               </tr>
             </thead>
             <tbody id="pendientes-body">
-              <tr><td colspan="8" class="empty-table">Sin causas con plazos vigentes</td></tr>
+              <tr><td colspan="7" class="empty-table">Sin causas con plazos vigentes</td></tr>
             </tbody>
           </table>
         </div>
@@ -1686,7 +1685,7 @@ function renderPendientes() {
 
   const body = document.getElementById('pendientes-body');
   if (!filas.length) {
-    body.innerHTML = '<tr><td colspan="8" class="empty-table">Sin plazos vigentes</td></tr>';
+    body.innerHTML = '<tr><td colspan="7" class="empty-table">Sin plazos vigentes</td></tr>';
     return;
   }
 
