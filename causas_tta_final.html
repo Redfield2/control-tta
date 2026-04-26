@@ -1972,7 +1972,7 @@ function calcularPlazos() {
       // Probatorio se reinicia desde día hábil siguiente a la resolución
       const inicioReinicio = siguienteDiaHabilJudicial(fechaResolucion);
       const resReinicio = sumarDiasHabiles(inicioReinicio, diasUsar);
-      html += `<div class="plazo-item" style="color:var(--warn)"><span class="plazo-nombre">⚠ Término probatorio REINICIADO — vence</span><span class="plazo-fecha">${formatFecha(resReinicio.fecha)}${sab(resReinicio)}</span></div>`;
+      html += `<div class="plazo-item" style="color:var(--warn)"><span class="plazo-nombre">⚠ ${etapaDef.nombre} REINICIADO — vence</span><span class="plazo-fecha">${formatFecha(resReinicio.fecha)}${sab(resReinicio)}</span></div>`;
       if (etapaDef.sub) {
         etapaDef.sub.forEach(s => {
           const rs = sumarDiasHabiles(inicioReinicio, s.dias);
@@ -1984,11 +1984,11 @@ function calcularPlazos() {
         html += `<div class="plazo-item"><span class="plazo-nombre">${etapaDef.postSub.nombre}</span><span class="plazo-fecha">${formatFecha(rp.fecha)}${sab(rp)}</span></div>`;
       }
     } else {
-      html += `<div class="plazo-item" style="color:var(--warn)"><span class="plazo-nombre">⚠ Término probatorio SUSPENDIDO — ingresar fecha de resolución</span><span class="plazo-fecha">—</span></div>`;
+      html += `<div class="plazo-item" style="color:var(--warn)"><span class="plazo-nombre">⚠ ${etapaDef.nombre} SUSPENDIDO — ingresar fecha de resolución</span><span class="plazo-fecha">—</span></div>`;
     }
   } else {
     const res = sumarDiasHabiles(inicioStr, diasUsar);
-    html += `<div class="plazo-item"><span class="plazo-nombre">Término probatorio — vence</span><span class="plazo-fecha">${formatFecha(res.fecha)}${sab(res)}</span></div>`;
+    html += `<div class="plazo-item"><span class="plazo-nombre">${etapaDef.nombre} — vence</span><span class="plazo-fecha">${formatFecha(res.fecha)}${sab(res)}</span></div>`;
     if (etapaDef.sub) {
       etapaDef.sub.forEach(s => {
         const rs = sumarDiasHabiles(inicioStr, s.dias);
