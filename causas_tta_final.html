@@ -4,15 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Control de Causas TTA — SII IX DR Temuco</title>
+<!-- Icono PWA / acceso directo iPhone — SVG embebido (TTA en fondo azul) -->
+<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxODAgMTgwIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYmciIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIxIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzAwNTdhOCIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwMDNmODUiLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgogIDxyZWN0IHdpZHRoPSIxODAiIGhlaWdodD0iMTgwIiByeD0iNDAiIGZpbGw9InVybCgjYmcpIi8+CiAgPHRleHQgeD0iOTAiIHk9IjExOCIgZm9udC1mYW1pbHk9IlN5bmUsIHN5c3RlbS11aSwgc2Fucy1zZXJpZiIKICAgICAgICBmb250LXNpemU9Ijc4IiBmb250LXdlaWdodD0iODAwIgogICAgICAgIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNmZmZmZmYiIGxldHRlci1zcGFjaW5nPSItMiI+VFRBPC90ZXh0PgogIDx0ZXh0IHg9IjkwIiB5PSIxNDgiIGZvbnQtZmFtaWx5PSJ1aS1tb25vc3BhY2UsIG1vbm9zcGFjZSIKICAgICAgICBmb250LXNpemU9IjExIiBmb250LXdlaWdodD0iNTAwIiBsZXR0ZXItc3BhY2luZz0iMiIKICAgICAgICB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYjhjNGQwIiBvcGFjaXR5PSIwLjg1Ij5TSUkgwrcgSVg8L3RleHQ+Cjwvc3ZnPgo=">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxODAgMTgwIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYmciIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIxIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzAwNTdhOCIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwMDNmODUiLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgogIDxyZWN0IHdpZHRoPSIxODAiIGhlaWdodD0iMTgwIiByeD0iNDAiIGZpbGw9InVybCgjYmcpIi8+CiAgPHRleHQgeD0iOTAiIHk9IjExOCIgZm9udC1mYW1pbHk9IlN5bmUsIHN5c3RlbS11aSwgc2Fucy1zZXJpZiIKICAgICAgICBmb250LXNpemU9Ijc4IiBmb250LXdlaWdodD0iODAwIgogICAgICAgIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNmZmZmZmYiIGxldHRlci1zcGFjaW5nPSItMiI+VFRBPC90ZXh0PgogIDx0ZXh0IHg9IjkwIiB5PSIxNDgiIGZvbnQtZmFtaWx5PSJ1aS1tb25vc3BhY2UsIG1vbm9zcGFjZSIKICAgICAgICBmb250LXNpemU9IjExIiBmb250LXdlaWdodD0iNTAwIiBsZXR0ZXItc3BhY2luZz0iMiIKICAgICAgICB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjYjhjNGQwIiBvcGFjaXR5PSIwLjg1Ij5TSUkgwrcgSVg8L3RleHQ+Cjwvc3ZnPgo=">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="TTA">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#0057a8">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg:      #b8c4d0;
-    --bg2:     #e8ecf1;
-    --bg3:     #dde2ea;
-    --bg4:     #cdd4de;
-    --border:  #b8c2cf;
-    --border2: #a4b0bf;
+    --bg:      #eef1f5;
+    --bg2:     #ffffff;
+    --bg3:     #f4f6fa;
+    --bg4:     #e4e9f0;
+    --border:  #d6dde6;
+    --border2: #b8c2cf;
     --text:    #141e2e;
     --text2:   #3a4a5e;
     --text3:   #6e7f94;
@@ -315,6 +322,15 @@
   tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; cursor: pointer; }
   tbody tr:hover { background: var(--bg3); }
 
+  /* Filas con plazo urgente: franja izquierda de color */
+  tbody tr.row-vencido td:first-child { box-shadow: inset 4px 0 0 var(--danger); }
+  tbody tr.row-hoy td:first-child     { box-shadow: inset 4px 0 0 var(--danger); }
+  tbody tr.row-proximo td:first-child { box-shadow: inset 4px 0 0 var(--warn); }
+  tbody tr.row-vencido { background: rgba(176,48,32,0.04); }
+  tbody tr.row-vencido:hover { background: rgba(176,48,32,0.09); }
+  tbody tr.row-hoy { background: rgba(176,48,32,0.06); }
+  tbody tr.row-hoy:hover { background: rgba(176,48,32,0.11); }
+
   td { padding: 0.65rem 1rem; color: var(--text2); white-space: nowrap; }
   td.rit    { font-family:'JetBrains Mono',monospace; font-size:0.7rem; color:var(--text); font-weight:500; }
   td.nombre { color:var(--text); font-weight:600; max-width:200px; overflow:hidden; text-overflow:ellipsis; }
@@ -351,6 +367,107 @@
     color: var(--text3);
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.72rem; letter-spacing: 0.1em;
+  }
+
+  /* ══ VISTA MÓVIL — TARJETAS ══ */
+  .cards-wrap { display: none; flex-direction: column; gap: 0.55rem; padding: 0.25rem 0; }
+  #tab-pendientes .panel:last-child .cards-wrap { max-height: 55vh; overflow-y: auto; }
+
+  .causa-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 0.7rem 0.85rem;
+    display: flex; flex-direction: column; gap: 0.35rem;
+    cursor: pointer;
+    transition: background 0.1s, transform 0.08s;
+  }
+  .causa-card:active { transform: scale(0.98); }
+  .causa-card:hover { background: var(--bg3); }
+  .causa-card.card-vencido { border-left-color: var(--danger); background: rgba(176,48,32,0.04); }
+  .causa-card.card-hoy     { border-left-color: var(--danger); background: rgba(176,48,32,0.06); }
+  .causa-card.card-proximo { border-left-color: var(--warn); }
+
+  .card-row1 {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .card-rit {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; color: var(--text2); font-weight: 500;
+  }
+  .card-nombre {
+    font-size: 0.92rem; font-weight: 700; color: var(--text);
+    line-height: 1.25;
+  }
+  .card-row3 {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.5rem; flex-wrap: wrap;
+  }
+  .card-plazo-info {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem; color: var(--text2);
+    flex: 1; min-width: 0;
+  }
+  .card-plazo-fecha {
+    color: var(--text); font-weight: 600;
+  }
+  .card-procedimiento {
+    font-size: 0.7rem; color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .empty-cards {
+    padding: 2rem 1rem; text-align: center;
+    color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem; letter-spacing: 0.1em;
+  }
+
+  /* ══ RESUMEN DASHBOARD ══ */
+  .resumen-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.7rem;
+    margin-bottom: 1rem;
+  }
+  .resumen-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    transition: transform 0.1s, box-shadow 0.1s;
+    cursor: default;
+  }
+  .resumen-card.has-items { cursor: pointer; }
+  .resumen-card.has-items:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .resumen-card.vencidos { border-left-color: var(--danger); }
+  .resumen-card.hoy      { border-left-color: var(--danger); }
+  .resumen-card.semana   { border-left-color: var(--warn); }
+  .resumen-card.total    { border-left-color: var(--accent); }
+  .resumen-numero {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+  .resumen-card.vencidos .resumen-numero,
+  .resumen-card.hoy .resumen-numero { color: var(--danger); }
+  .resumen-card.semana .resumen-numero { color: var(--warn); }
+  .resumen-card.total .resumen-numero { color: var(--accent); }
+  .resumen-card.empty .resumen-numero { color: var(--text3); }
+  .resumen-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-top: 0.2rem;
   }
 
   /* ══ MODAL ══ */
@@ -593,10 +710,32 @@
   ::-webkit-scrollbar-track { background:var(--bg); }
   ::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
 
-  @media (max-width:600px) {
+  @media (max-width:768px) {
     .form-grid { grid-template-columns:1fr; }
     .detalle-grid { grid-template-columns:1fr; }
-    .main { padding:0.85rem; }
+    .main { padding:0.75rem; gap: 0.7rem; }
+    .resumen-bar { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+    .resumen-numero { font-size: 1.3rem; }
+    .resumen-card { padding: 0.7rem 0.8rem; }
+
+    /* Ocultar tablas, mostrar cards */
+    .table-wrap { display: none; }
+    .cards-wrap { display: flex; }
+
+    /* Topbar más compacta */
+    .topbar { padding: 0.6rem 0.85rem; }
+    .app-brand strong { font-size: 0.95rem; }
+    .app-brand span { display: none; }
+    .topbar-actions .btn { padding: 0.4rem 0.7rem; font-size: 0.72rem; }
+
+    /* Filtros: input y select a 100% */
+    .filter-input { width: 100%; }
+    .filters-bar { flex-direction: column; align-items: stretch; }
+    .filters-bar > * { width: 100%; }
+
+    /* Panel headers más compactos */
+    .panel { padding: 0.7rem 0.85rem; }
+    .panel-title { font-size: 0.78rem; }
   }
 </style>
 </head>
@@ -659,6 +798,9 @@
     <!-- TAB PENDIENTES -->
     <div id="tab-pendientes" class="tab-content active">
 
+      <!-- RESUMEN -->
+      <div class="resumen-bar" id="resumen-bar"></div>
+
       <!-- ALERTAS -->
       <div class="panel">
         <div class="panel-header">
@@ -710,6 +852,9 @@
             </tbody>
           </table>
         </div>
+        <div class="cards-wrap" id="pendientes-cards">
+          <div class="empty-cards">Sin causas con plazos vigentes</div>
+        </div>
       </div>
 
     </div><!-- /tab-pendientes -->
@@ -749,6 +894,9 @@
               <tr><td colspan="6" class="empty-table">Sin causas registradas</td></tr>
             </tbody>
           </table>
+        </div>
+        <div class="cards-wrap" id="expedientes-cards">
+          <div class="empty-cards">Sin causas registradas</div>
         </div>
       </div>
     </div><!-- /tab-expedientes -->
@@ -1312,7 +1460,7 @@ async function loginSubmit() {
 
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').classList.add('visible');
-    renderAlertas(); renderPendientes(); renderExpedientes();
+    renderAlertas(); renderResumen(); renderPendientes(); renderExpedientes();
   } catch (err) {
     errEl.textContent = 'Error al conectar. Verifica la URL.';
     console.error(err);
@@ -1574,6 +1722,60 @@ function renderAlertas() {
 }
 
 // ══════════════════════════════════════════════
+// RENDER RESUMEN (franja de 4 contadores)
+// ══════════════════════════════════════════════
+function renderResumen() {
+  const cont = document.getElementById('resumen-bar');
+  if (!cont) return;
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const hoyISO = toISO(hoy);
+
+  // Calcular fin de semana hábil (próximos 5 días hábiles)
+  let limiteSemana = new Date(hoy);
+  let dh = 0;
+  while (dh < 5) {
+    limiteSemana.setDate(limiteSemana.getDate() + 1);
+    if (esDiaHabil(limiteSemana)) dh++;
+  }
+  const limiteSemanaISO = toISO(limiteSemana);
+
+  let vencidos = 0, hoyCount = 0, semana = 0, total = 0;
+
+  causas.forEach(c => {
+    calcularPlazosParaCausa(c).forEach(p => {
+      if (!p.fecha) return;
+      if (c.plazoscumplidos?.[p.key]) return;
+      if (c.etapa === 'auto_prueba' && p.key === 'auto_prueba_postsub') return;
+      total++;
+      if (p.fecha < hoyISO) vencidos++;
+      else if (p.fecha === hoyISO) hoyCount++;
+      else if (p.fecha <= limiteSemanaISO) semana++;
+    });
+    (c.audiencias || []).forEach(a => {
+      if (!a.fecha) return;
+      total++;
+      if (a.fecha < hoyISO) vencidos++;
+      else if (a.fecha === hoyISO) hoyCount++;
+      else if (a.fecha <= limiteSemanaISO) semana++;
+    });
+  });
+
+  const card = (cls, num, label) => {
+    const empty = num === 0 ? ' empty' : '';
+    return `<div class="resumen-card ${cls}${empty}">
+      <div class="resumen-numero">${num}</div>
+      <div class="resumen-label">${label}</div>
+    </div>`;
+  };
+
+  cont.innerHTML =
+    card('vencidos', vencidos, 'Vencidos') +
+    card('hoy', hoyCount, 'Hoy') +
+    card('semana', semana, 'Próx. 5 días') +
+    card('total', total, 'Total vigentes');
+}
+
+// ══════════════════════════════════════════════
 // TABS
 // ══════════════════════════════════════════════
 let activeTab = 'pendientes';
@@ -1682,8 +1884,10 @@ function renderPendientes() {
   document.getElementById('pendientes-count').textContent = `${filas.length} plazo${filas.length !== 1 ? 's' : ''}`;
 
   const body = document.getElementById('pendientes-body');
+  const cardsCont = document.getElementById('pendientes-cards');
   if (!filas.length) {
     body.innerHTML = '<tr><td colspan="7" class="empty-table">Sin plazos vigentes</td></tr>';
+    if (cardsCont) cardsCont.innerHTML = '<div class="empty-cards">Sin plazos vigentes</div>';
     return;
   }
 
@@ -1696,7 +1900,12 @@ function renderPendientes() {
     const avance = verificarAvanceEtapa(c);
     const avanceBtn = avance ? `<button class="btn-avance" onclick="event.stopPropagation();avanzarEtapa('${c.id}')">↑ avanzar etapa</button>` : '';
 
-    return `<tr onclick="verDetalle('${c.id}')">
+    let rowClass = '';
+    if (dr === null) rowClass = 'row-vencido';
+    else if (dr === 0) rowClass = 'row-hoy';
+    else if (dr <= 3) rowClass = 'row-proximo';
+
+    return `<tr class="${rowClass}" onclick="verDetalle('${c.id}')">
       <td class="rit">${c.rit || '—'}</td>
       <td class="nombre">${c.nombre || '—'}</td>
       <td style="font-size:0.7rem;color:var(--text2)">${procNombre}</td>
@@ -1707,6 +1916,31 @@ function renderPendientes() {
       <td><span class="abogado-chip" style="color:${ab.color};background:${ab.bg}">${c.abogado}</span></td>
     </tr>`;
   }).join('');
+
+  // Versión móvil: tarjetas
+  if (cardsCont) {
+    cardsCont.innerHTML = filas.map(({ causa: c, plazo: p, dr }) => {
+      const ab = ABOGADOS[c.abogado] || ABOGADOS['Genérico'];
+      const sabNote = p.esSabado ? ' <span style="color:var(--danger);font-weight:700;font-size:0.6rem">(SÁB)</span>' : '';
+      let cardClass = '';
+      if (dr === null) cardClass = 'card-vencido';
+      else if (dr === 0) cardClass = 'card-hoy';
+      else if (dr <= 3) cardClass = 'card-proximo';
+      return `<div class="causa-card ${cardClass}" onclick="verDetalle('${c.id}')">
+        <div class="card-row1">
+          ${chipDias(dr)}
+          <span class="abogado-chip" style="color:${ab.color};background:${ab.bg}">${c.abogado}</span>
+        </div>
+        <div class="card-rit">${c.rit || '—'}</div>
+        <div class="card-nombre">${c.nombre || '—'}</div>
+        <div class="card-row3">
+          <div class="card-plazo-info">
+            <span class="card-plazo-fecha">${formatFecha(p.fecha)}${sabNote}</span> · ${p.nombre}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -1731,8 +1965,10 @@ function renderExpedientes() {
   document.getElementById('expedientes-count').textContent = `${lista.length} causa${lista.length!==1?'s':''}`;
 
   const body = document.getElementById('expedientes-body');
+  const cardsCont = document.getElementById('expedientes-cards');
   if (!lista.length) {
     body.innerHTML = '<tr><td colspan="6" class="empty-table">Sin causas registradas</td></tr>';
+    if (cardsCont) cardsCont.innerHTML = '<div class="empty-cards">Sin causas registradas</div>';
     return;
   }
 
@@ -1749,6 +1985,26 @@ function renderExpedientes() {
       <td>${diligIconos(c)}</td>
     </tr>`;
   }).join('');
+
+  // Versión móvil: tarjetas
+  if (cardsCont) {
+    cardsCont.innerHTML = lista.map(c => {
+      const ab = ABOGADOS[c.abogado] || ABOGADOS['Genérico'];
+      const procNombre  = PROCEDIMIENTOS[c.procedimiento]?.nombre || '—';
+      const etapaNombre = getEtapaNombre(c.procedimiento, c.etapa) || '—';
+      return `<div class="causa-card" onclick="verDetalle('${c.id}')">
+        <div class="card-row1">
+          <span class="card-rit">${c.rit || '—'}</span>
+          <span class="abogado-chip" style="color:${ab.color};background:${ab.bg}">${c.abogado}</span>
+        </div>
+        <div class="card-nombre">${c.nombre || '—'}</div>
+        <div class="card-row3">
+          <div class="card-procedimiento">${procNombre} · <span class="etapa-badge">${etapaNombre}</span></div>
+          <div>${diligIconos(c)}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
 }
 
 // Avance automático de etapa con confirmación
@@ -1763,7 +2019,7 @@ async function avanzarEtapa(id) {
   causas[idx].fechaNotif = '';
   causas[idx].fechaManual = '';
   await sincronizarCausa(causas[idx].id);
-  renderAlertas(); renderPendientes(); renderExpedientes();
+  renderAlertas(); renderResumen(); renderPendientes(); renderExpedientes();
 }
 
 function getEtapaNombre(proc, etapa) {
@@ -2052,7 +2308,7 @@ async function guardarCausa() {
 
   await guardarStorage();
   cerrarModal('modal-causa');
-  renderAlertas(); renderPendientes(); renderExpedientes();
+  renderAlertas(); renderResumen(); renderPendientes(); renderExpedientes();
 }
 
 async function eliminarCausa() {
@@ -2062,7 +2318,7 @@ async function eliminarCausa() {
   causas = causas.filter(c => String(c.id) !== String(idAEliminar));
   await eliminarDelSheet(idAEliminar);
   cerrarModal('modal-causa');
-  renderAlertas(); renderPendientes(); renderExpedientes();
+  renderAlertas(); renderResumen(); renderPendientes(); renderExpedientes();
 }
 
 // guardarStorage() ahora es async y está definida en la sección CAPA DE PERSISTENCIA.
@@ -2286,7 +2542,7 @@ async function guardarAjuste() {
 
   await sincronizarCausa(ajusteActual.causaId);
   cerrarAjuste();
-  renderAlertas(); renderPendientes(); renderExpedientes();
+  renderAlertas(); renderResumen(); renderPendientes(); renderExpedientes();
   verDetalle(ajusteActual.causaId);
 }
 
@@ -2296,7 +2552,7 @@ async function quitarAjuste() {
   if (causas[idx].ajustesPlazos) delete causas[idx].ajustesPlazos[ajusteActual.key];
   await sincronizarCausa(ajusteActual.causaId);
   cerrarAjuste();
-  renderAlertas(); renderPendientes(); renderExpedientes();
+  renderAlertas(); renderResumen(); renderPendientes(); renderExpedientes();
   verDetalle(ajusteActual.causaId);
 }
 
@@ -2313,7 +2569,7 @@ async function toggleCumplido(causaId, key) {
     causas[idx].plazoscumplidos[key] = toISO(new Date());
   }
   await sincronizarCausa(causaId);
-  renderAlertas(); renderPendientes(); renderExpedientes();
+  renderAlertas(); renderResumen(); renderPendientes(); renderExpedientes();
   verDetalle(causaId);
 }
 
