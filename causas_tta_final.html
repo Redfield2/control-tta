@@ -34,6 +34,7 @@
     --c-luis:     #196840;
     --c-viviana:  #a04e00;
     --c-paulette: #922858;
+    --c-otro:     #0e8a8a;
     --c-generico: #4e5f72;
     --radius:  6px;
     --radius2: 10px;
@@ -620,6 +621,11 @@
   .dilig-row {
     display: flex; gap: 0.3rem; align-items: center;
   }
+
+  /* Ícono delegación de poder en tablas */
+  .dp-icon { font-size:0.85rem; cursor:default; line-height:1; }
+  .dp-icon.dp-si { color: var(--ok); }
+  .dp-icon.dp-no { color: var(--border2); }
   .dilig-icon {
     width: 22px; height: 22px;
     border-radius: 4px;
@@ -733,6 +739,7 @@
         <span style="animation:pulse 1s infinite">⟳</span> Sincronizando…
       </span>
       <button id="btn-migrar" class="btn btn-ghost" onclick="migrarDatosAlSheet()" style="display:none;font-size:0.7rem" title="Migrar datos locales al Google Sheet">↑ Migrar datos</button>
+      <button class="btn btn-ghost" onclick="descargarRespaldo()" title="Descargar respaldo JSON de todas las causas" style="font-size:0.7rem">↓ Respaldo</button>
       <button class="btn btn-primary" onclick="abrirModalNueva()">+ Nueva Causa</button>
       <button class="btn btn-ghost" onclick="logout()">Salir</button>
     </div>
@@ -767,7 +774,12 @@
       <div class="panel" style="flex:1">
         <div class="panel-header">
           <div class="panel-title">Causas con plazos vigentes</div>
-          <div id="pendientes-count" style="font-size:0.65rem;font-family:'JetBrains Mono',monospace;color:var(--text3)"></div>
+          <div style="display:flex;align-items:center;gap:1rem">
+            <span style="font-size:0.6rem;font-family:'JetBrains Mono',monospace;color:var(--text3)" title="Columna DP: delegación de poder">
+              <span style="color:var(--ok)">✔</span> = Delega poder
+            </span>
+            <div id="pendientes-count" style="font-size:0.65rem;font-family:'JetBrains Mono',monospace;color:var(--text3)"></div>
+          </div>
         </div>
         <div class="filters-bar">
           <input type="text" class="filter-input" id="filtro-busqueda" placeholder="Buscar RIT, RUT, nombre…" oninput="renderPendientes()">
@@ -778,7 +790,8 @@
             <option value="Luis">Luis</option>
             <option value="Viviana">Viviana</option>
             <option value="Paulette">Paulette</option>
-            <option value="Genérico">Genérico</option>
+            <option value="Otro abogado">Otro abogado</option>
+            <option value="Desconocido">Desconocido</option>
           </select>
         </div>
         <div class="table-wrap">
@@ -792,6 +805,7 @@
                 <th>Plazo</th>
                 <th onclick="sortBy('proximoVencimiento','pendientes')">Vencimiento</th>
                 <th onclick="sortBy('diasRestantes','pendientes')">Días Restantes</th>
+                <th title="✔ = Delegación de poder presentada">DP</th>
                 <th onclick="sortBy('abogado','pendientes')">Abogado</th>
               </tr>
             </thead>
@@ -823,7 +837,8 @@
             <option value="Luis">Luis</option>
             <option value="Viviana">Viviana</option>
             <option value="Paulette">Paulette</option>
-            <option value="Genérico">Genérico</option>
+            <option value="Otro abogado">Otro abogado</option>
+            <option value="Desconocido">Desconocido</option>
           </select>
         </div>
         <div class="table-wrap">
@@ -835,6 +850,7 @@
                 <th onclick="sortBy('procedimiento','expedientes')">Procedimiento</th>
                 <th onclick="sortBy('etapa','expedientes')">Etapa</th>
                 <th onclick="sortBy('abogado','expedientes')">Abogado</th>
+                <th title="✔ = Delegación de poder presentada">DP</th>
                 <th>Dilig. Pendientes</th>
               </tr>
             </thead>
@@ -878,10 +894,10 @@
           <label>Procedimiento</label>
           <select id="f-procedimiento" onchange="onProcedimientoChange()">
             <option value="">— Seleccionar —</option>
-            <option value="general">Procedimiento General (art. 132 CT)</option>
-            <option value="vulneracion">Vulneración de Derechos (art. 155 CT)</option>
-            <option value="infraccional">Infraccional (art. 165 CT)</option>
-            <option value="acta_denuncia">Acta de Denuncia (art. 161 CT)</option>
+            <option value="general">Procedimiento General (art. 132)</option>
+            <option value="vulneracion">Vulneración de Derechos (art. 155)</option>
+            <option value="infraccional">Infraccional (art. 165)</option>
+            <option value="acta_denuncia">Acta de Denuncia (art. 161)</option>
             <option value="ica_apelacion">ICA — Apelación</option>
             <option value="otro">Otro procedimiento</option>
           </select>
@@ -894,7 +910,8 @@
             <option value="Luis">Luis</option>
             <option value="Viviana">Viviana</option>
             <option value="Paulette">Paulette</option>
-            <option value="Genérico">Genérico</option>
+            <option value="Otro abogado">Otro abogado</option>
+            <option value="Desconocido">Desconocido</option>
           </select>
         </div>
 
@@ -937,6 +954,19 @@
         <div class="form-group" id="reposicion-resolucion-group" style="display:none">
           <label>Fecha resolución de la reposición</label>
           <input type="date" id="f-resolucion-reposicion" onchange="calcularPlazos()">
+        </div>
+
+        <!-- RESULTADO SENTENCIA (visible solo en etapa sentencia_dictada) -->
+        <div class="form-group full" id="sentencia-resultado-group" style="display:none">
+          <div class="section-divider" style="margin-top:0.2rem">Resultado de la sentencia</div>
+        </div>
+        <div class="form-group" id="sentencia-resultado-fields" style="display:none">
+          <label>Resultado para el SII</label>
+          <select id="f-sentencia-resultado">
+            <option value="">— Seleccionar —</option>
+            <option value="favorable">✔ Favorable para el SII</option>
+            <option value="desfavorable">✗ Desfavorable para el SII</option>
+          </select>
         </div>
 
         <!-- OBSERVACIONES -->
@@ -1048,12 +1078,13 @@ function getClaveActual() { return sessionStorage.getItem('ctt_clave') || ''; }
 function getScriptURL()   { return sessionStorage.getItem('ctt_url')   || ''; }
 
 const ABOGADOS = {
-  'Felipe':   { color:'var(--c-felipe)',   bg:'rgba(74,144,217,0.14)' },
-  'Erwin':    { color:'var(--c-erwin)',    bg:'rgba(139,111,212,0.14)' },
-  'Luis':     { color:'var(--c-luis)',     bg:'rgba(46,168,110,0.14)' },
-  'Viviana':  { color:'var(--c-viviana)',  bg:'rgba(217,114,22,0.14)' },
-  'Paulette': { color:'var(--c-paulette)', bg:'rgba(199,84,122,0.14)' },
-  'Genérico': { color:'var(--c-generico)', bg:'rgba(122,136,153,0.14)' },
+  'Felipe':        { color:'var(--c-felipe)',   bg:'rgba(74,144,217,0.14)' },
+  'Erwin':         { color:'var(--c-erwin)',    bg:'rgba(139,111,212,0.14)' },
+  'Luis':          { color:'var(--c-luis)',     bg:'rgba(46,168,110,0.14)' },
+  'Viviana':       { color:'var(--c-viviana)',  bg:'rgba(217,114,22,0.14)' },
+  'Paulette':      { color:'var(--c-paulette)', bg:'rgba(199,84,122,0.14)' },
+  'Otro abogado':  { color:'var(--c-otro)',     bg:'rgba(32,168,168,0.14)' },
+  'Desconocido':   { color:'var(--c-generico)', bg:'rgba(122,136,153,0.14)' },
 };
 
 // ── Feriados 2026–2027 ──
@@ -1078,7 +1109,7 @@ const FERIADOS = new Set([
 
 const PROCEDIMIENTOS = {
   general: {
-    nombre: 'Procedimiento General (art. 132 CT)',
+    nombre: 'Procedimiento General (art. 132)',
     etapas: [
       {
         id: 'traslado',
@@ -1119,10 +1150,18 @@ const PROCEDIMIENTOS = {
         labelFecha: 'Fecha citación a oír sentencia',
         tipo: 'manual'
       },
+      {
+        id: 'sentencia_dictada',
+        nombre: 'Sentencia Dictada',
+        labelFecha: 'Fecha notificación de la sentencia',
+        tipo: 'auto', dias: 15,
+        tieneReposicion: false,
+        esSentencia: true,
+      },
     ]
   },
   vulneracion: {
-    nombre: 'Vulneración de Derechos (art. 155 CT)',
+    nombre: 'Vulneración de Derechos (art. 155)',
     etapas: [
       {
         id: 'traslado',
@@ -1149,10 +1188,18 @@ const PROCEDIMIENTOS = {
         labelFecha: 'Fecha citación a oír sentencia',
         tipo: 'manual'
       },
+      {
+        id: 'sentencia_dictada',
+        nombre: 'Sentencia Dictada',
+        labelFecha: 'Fecha notificación de la sentencia',
+        tipo: 'auto', dias: 15,
+        tieneReposicion: false,
+        esSentencia: true,
+      },
     ]
   },
   infraccional: {
-    nombre: 'Infraccional (art. 165 CT)',
+    nombre: 'Infraccional (art. 165)',
     etapas: [
       {
         id: 'traslado',
@@ -1179,10 +1226,18 @@ const PROCEDIMIENTOS = {
         labelFecha: 'Fecha citación a oír sentencia',
         tipo: 'manual'
       },
+      {
+        id: 'sentencia_dictada',
+        nombre: 'Sentencia Dictada',
+        labelFecha: 'Fecha notificación de la sentencia',
+        tipo: 'auto', dias: 15,
+        tieneReposicion: false,
+        esSentencia: true,
+      },
     ]
   },
   acta_denuncia: {
-    nombre: 'Acta de Denuncia (art. 161 CT)',
+    nombre: 'Acta de Denuncia (art. 161)',
     etapas: [
       {
         id: 'notif_acta',
@@ -1216,6 +1271,14 @@ const PROCEDIMIENTOS = {
         nombre: 'Para Sentencia',
         labelFecha: 'Fecha autos para fallo',
         tipo: 'manual'
+      },
+      {
+        id: 'sentencia_dictada',
+        nombre: 'Sentencia Dictada',
+        labelFecha: 'Fecha notificación de la sentencia',
+        tipo: 'auto', dias: 15,
+        tieneReposicion: false,
+        esSentencia: true,
       },
     ]
   },
@@ -1672,7 +1735,7 @@ function renderAlertas() {
   }
 
   const cards = alertas.map(a => {
-    const ab = ABOGADOS[a.causa.abogado] || ABOGADOS['Genérico'];
+    const ab = ABOGADOS[a.causa.abogado] || ABOGADOS['Desconocido'];
     return `<div class="alert-card urgente" onclick="verDetalle('${a.causa.id}')">
       <div>
         <div class="alert-badge" style="color:var(--danger)">HOY</div>
@@ -1696,7 +1759,7 @@ function renderAlertas() {
 let activeTab = 'pendientes';
 let sortState = {
   pendientes:  { col: 'diasRestantes', asc: true },
-  expedientes: { col: 'nombre', asc: true },
+  expedientes: { col: 'rit', asc: true },
 };
 
 function switchTab(tab) {
@@ -1755,11 +1818,11 @@ function renderPendientes() {
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   const hoyISO = toISO(hoy);
 
-  // Calcular segundo día hábil siguiente a hoy (límite para mostrar vencidos)
+  // Calcular 1 día hábil anterior a hoy (límite para mostrar vencidos)
   let limiteVencidos = new Date(hoy);
   let dhContados = 0;
-  while (dhContados < 2) {
-    limiteVencidos.setDate(limiteVencidos.getDate() + 1);
+  while (dhContados < 1) {
+    limiteVencidos.setDate(limiteVencidos.getDate() - 1);
     if (esDiaHabil(limiteVencidos)) dhContados++;
   }
   const limiteVencidosISO = toISO(limiteVencidos);
@@ -1775,15 +1838,15 @@ function renderPendientes() {
       if (c.plazoscumplidos?.[p.key]) return;
       // Excluir obs. a la prueba mientras la causa está en período de prueba
       if (c.etapa === 'auto_prueba' && p.key === 'auto_prueba_postsub') return;
-      // Mostrar: futuros + hoy + vencidos hasta el 2° día hábil siguiente
-      if (p.fecha < hoyISO && p.fecha < limiteVencidosISO) return;
+      // Mostrar: futuros + hoy + vencidos del día hábil inmediatamente anterior
+      if (p.fecha < limiteVencidosISO) return;
       const dr = diasHabilesRestantes(p.fecha);
       filas.push({ causa: c, plazo: p, dr });
     });
     // Agregar audiencias con fecha como filas adicionales
     (c.audiencias || []).forEach((a, i) => {
       if (!a.fecha) return;
-      if (a.fecha < hoyISO && a.fecha < limiteVencidosISO) return;
+      if (a.fecha < limiteVencidosISO) return;
       const dr = diasHabilesRestantes(a.fecha);
       filas.push({ causa: c, plazo: { nombre: a.tipo || 'Audiencia', fecha: a.fecha, esSabado: false, key: `aud_${i}`, ajustado: false }, dr, esAudiencia: true });
     });
@@ -1807,7 +1870,7 @@ function renderPendientes() {
   }
 
   body.innerHTML = filas.map(({ causa: c, plazo: p, dr }) => {
-    const ab = ABOGADOS[c.abogado] || ABOGADOS['Genérico'];
+    const ab = ABOGADOS[c.abogado] || ABOGADOS['Desconocido'];
     const procNombre  = PROCEDIMIENTOS[c.procedimiento]?.nombre || '—';
     const etapaNombre = getEtapaNombre(c.procedimiento, c.etapa) || '—';
     const sabNote = p.esSabado ? ` <span style="color:var(--danger);font-weight:700;font-size:0.6rem">(SÁB)</span>` : '';
@@ -1828,6 +1891,7 @@ function renderPendientes() {
       <td class="plazo" style="font-size:0.72rem;color:var(--text2)">${p.nombre}</td>
       <td class="plazo">${fechaCol}</td>
       <td>${chipDias(dr)}</td>
+      <td class="dp-cell"><span class="dp-icon ${c.gestiones?.delegacion?.hecho ? 'dp-si' : 'dp-no'}" title="${c.gestiones?.delegacion?.hecho ? 'Delegación presentada' : 'Sin delegación'}">${c.gestiones?.delegacion?.hecho ? '✔' : '—'}</span></td>
       <td><span class="abogado-chip" style="color:${ab.color};background:${ab.bg}">${c.abogado}</span></td>
     </tr>`;
   }).join('');
@@ -1835,7 +1899,7 @@ function renderPendientes() {
   // Versión móvil: tarjetas
   if (cardsCont) {
     cardsCont.innerHTML = filas.map(({ causa: c, plazo: p, dr }) => {
-      const ab = ABOGADOS[c.abogado] || ABOGADOS['Genérico'];
+      const ab = ABOGADOS[c.abogado] || ABOGADOS['Desconocido'];
       const sabNote = p.esSabado ? ' <span style="color:var(--danger);font-weight:700;font-size:0.6rem">(SÁB)</span>' : '';
       let cardClass = '';
       if (dr === null) cardClass = 'card-vencido';
@@ -1866,6 +1930,15 @@ function renderExpedientes() {
   const abog = document.getElementById('filtro-abogado-exp')?.value || '';
   const s = sortState.expedientes;
 
+  // Parsea RIT → { anio, numero } para orden cronológico real
+  // Formato: XX-DD-NNNNN-AAAA (ej: GR-08-00021-2026 → { anio:2026, numero:21 })
+  function parseRIT(rit) {
+    if (!rit) return { anio: 9999, numero: 9999 };
+    const m = rit.match(/(\d+)-(\d{4})$/);
+    if (!m) return { anio: 9999, numero: 9999 };
+    return { anio: parseInt(m[2]), numero: parseInt(m[1]) };
+  }
+
   let lista = causas.filter(c => {
     if (busq && !`${c.rit} ${c.rut} ${c.nombre}`.toLowerCase().includes(busq)) return false;
     if (abog && c.abogado !== abog) return false;
@@ -1873,6 +1946,11 @@ function renderExpedientes() {
   });
 
   lista.sort((a,b) => {
+    if (s.col === 'rit') {
+      const pa = parseRIT(a.rit), pb = parseRIT(b.rit);
+      const cmp = pa.anio !== pb.anio ? pa.anio - pb.anio : pa.numero - pb.numero;
+      return s.asc ? cmp : -cmp;
+    }
     let va = a[s.col]||'', vb = b[s.col]||'';
     return s.asc ? (va<vb?-1:va>vb?1:0) : (va>vb?-1:va<vb?1:0);
   });
@@ -1888,7 +1966,7 @@ function renderExpedientes() {
   }
 
   body.innerHTML = lista.map(c => {
-    const ab = ABOGADOS[c.abogado] || ABOGADOS['Genérico'];
+    const ab = ABOGADOS[c.abogado] || ABOGADOS['Desconocido'];
     const procNombre  = PROCEDIMIENTOS[c.procedimiento]?.nombre || '—';
     const etapaNombre = getEtapaNombre(c.procedimiento, c.etapa) || '—';
     return `<tr onclick="verDetalle('${c.id}')">
@@ -1897,6 +1975,7 @@ function renderExpedientes() {
       <td style="font-size:0.7rem;color:var(--text2)">${procNombre}</td>
       <td><span class="etapa-badge">${etapaNombre}</span></td>
       <td><span class="abogado-chip" style="color:${ab.color};background:${ab.bg}">${c.abogado}</span></td>
+      <td class="dp-cell"><span class="dp-icon ${c.gestiones?.delegacion?.hecho ? 'dp-si' : 'dp-no'}" title="${c.gestiones?.delegacion?.hecho ? 'Delegación presentada' : 'Sin delegación'}">${c.gestiones?.delegacion?.hecho ? '✔' : '—'}</span></td>
       <td>${diligIconos(c)}</td>
     </tr>`;
   }).join('');
@@ -1904,7 +1983,7 @@ function renderExpedientes() {
   // Versión móvil: tarjetas
   if (cardsCont) {
     cardsCont.innerHTML = lista.map(c => {
-      const ab = ABOGADOS[c.abogado] || ABOGADOS['Genérico'];
+      const ab = ABOGADOS[c.abogado] || ABOGADOS['Desconocido'];
       const procNombre  = PROCEDIMIENTOS[c.procedimiento]?.nombre || '—';
       const etapaNombre = getEtapaNombre(c.procedimiento, c.etapa) || '—';
       return `<div class="causa-card" onclick="verDetalle('${c.id}')">
@@ -2062,16 +2141,24 @@ function onEtapaChange() {
   const proc    = document.getElementById('f-procedimiento').value;
   const etapaId = document.getElementById('f-etapa').value;
   ['fecha-notif-group','fecha-manual-group','plazos-group',
-   'reposicion-group','reposicion-fields','reposicion-resolucion-group'].forEach(id => {
+   'reposicion-group','reposicion-fields','reposicion-resolucion-group',
+   'sentencia-resultado-group','sentencia-resultado-fields'].forEach(id => {
     document.getElementById(id).style.display = 'none';
   });
   document.getElementById('f-fecha-notif').value  = '';
   document.getElementById('f-fecha-manual').value = '';
   document.getElementById('f-reposicion').checked = false;
+  document.getElementById('f-sentencia-resultado').value = '';
 
   if (!proc || !etapaId) return;
   const etapaDef = PROCEDIMIENTOS[proc]?.etapas.find(e => e.id === etapaId);
   if (!etapaDef) return;
+
+  // Campo resultado sentencia
+  if (etapaDef.esSentencia) {
+    document.getElementById('sentencia-resultado-group').style.display = 'block';
+    document.getElementById('sentencia-resultado-fields').style.display = 'block';
+  }
 
   if (etapaDef.tipo === 'auto' || etapaDef.tipo === 'auto_si_hay') {
     document.getElementById('fecha-notif-label').textContent = etapaDef.labelFecha;
@@ -2182,6 +2269,21 @@ document.addEventListener('change', e => {
   if (e.target.id === 'f-dias-personalizados') calcularPlazos();
 });
 
+// ══════════════════════════════════════════════
+// RESPALDO
+// ══════════════════════════════════════════════
+function descargarRespaldo() {
+  if (!causas.length) { alert('No hay causas para respaldar.'); return; }
+  const fecha = new Date().toISOString().substring(0,10);
+  const hora  = new Date().toTimeString().substring(0,5).replace(':','-');
+  const nombre = `respaldo_TTA_${fecha}_${hora}.json`;
+  const blob = new Blob([JSON.stringify(causas, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = nombre; a.click();
+  URL.revokeObjectURL(url);
+}
+
 async function guardarCausa() {
   const rit    = document.getElementById('f-rit').value.trim();
   const nombre = document.getElementById('f-nombre').value.trim();
@@ -2201,6 +2303,7 @@ async function guardarCausa() {
     fechaManual:   document.getElementById('f-fecha-manual').value,
     reposicionDeducida: document.getElementById('f-reposicion')?.checked || false,
     fechaResolucionReposicion: document.getElementById('f-resolucion-reposicion')?.value || '',
+    sentenciaResultado: document.getElementById('f-sentencia-resultado')?.value || '',
     diasPersonalizados: diasEl ? parseInt(diasEl.value || '0') : null,
     observaciones: document.getElementById('f-obs').value.trim(),
     gestiones: {
@@ -2246,7 +2349,7 @@ function verDetalle(id) {
   if (!c) return;
   detalleId = id;
 
-  const ab = ABOGADOS[c.abogado] || ABOGADOS['Genérico'];
+  const ab = ABOGADOS[c.abogado] || ABOGADOS['Desconocido'];
   const procNombre  = PROCEDIMIENTOS[c.procedimiento]?.nombre || '—';
   const etapaNombre = getEtapaNombre(c.procedimiento, c.etapa) || '—';
   const plazos = calcularPlazosParaCausa(c);
@@ -2334,6 +2437,12 @@ function verDetalle(id) {
           <span class="detalle-field-label">Fecha referencia</span>
           <span class="detalle-field-value" style="font-family:'JetBrains Mono',monospace">${formatFecha(c.fechaNotif||c.fechaManual)}</span>
         </div>
+        ${c.sentenciaResultado ? `<div class="detalle-field" style="grid-column:1/-1">
+          <span class="detalle-field-label">Resultado sentencia</span>
+          <span class="detalle-field-value" style="font-weight:700;color:${c.sentenciaResultado==='favorable'?'var(--ok)':'var(--danger)'}">
+            ${c.sentenciaResultado==='favorable'?'✔ Favorable para el SII':'✗ Desfavorable para el SII'}
+          </span>
+        </div>` : ''}
       </div>
     </div>
 
@@ -2402,6 +2511,16 @@ function abrirEditar(id) {
       document.getElementById('reposicion-resolucion-group').style.display = 'block';
       const rr = document.getElementById('f-resolucion-reposicion');
       if (rr) rr.value = cleanDate(c.fechaResolucionReposicion);
+    }
+  }
+
+  // Cargar resultado sentencia si corresponde
+  const sentRes = document.getElementById('f-sentencia-resultado');
+  if (sentRes && c.sentenciaResultado) {
+    sentRes.value = c.sentenciaResultado;
+    if (c.etapa === 'sentencia_dictada') {
+      document.getElementById('sentencia-resultado-group').style.display = 'block';
+      document.getElementById('sentencia-resultado-fields').style.display = 'block';
     }
   }
 
