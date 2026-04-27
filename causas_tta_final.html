@@ -1138,6 +1138,12 @@ const PROCEDIMIENTOS = {
         sub: [ { nombre: 'Lista de testigos — vence', dias: 5 } ],
       },
       {
+        id: 'conciliacion_1',
+        nombre: 'Conciliación',
+        labelFecha: 'Fecha de la audiencia de conciliación',
+        tipo: 'manual'
+      },
+      {
         id: 'sentencia',
         nombre: 'Para Sentencia',
         labelFecha: 'Fecha citación a oír sentencia',
@@ -1160,6 +1166,12 @@ const PROCEDIMIENTOS = {
         labelFecha: 'Fecha notificación auto de prueba',
         tipo: 'auto_si_hay', dias: 8,
         sub: [ { nombre: 'Lista de testigos — vence', dias: 2 } ]
+      },
+      {
+        id: 'conciliacion_1',
+        nombre: 'Conciliación',
+        labelFecha: 'Fecha de la audiencia de conciliación',
+        tipo: 'manual'
       },
       {
         id: 'sentencia',
@@ -1192,6 +1204,12 @@ const PROCEDIMIENTOS = {
         tieneReposicion: true,
         inputDias: true,
         sub: [ { nombre: 'Lista de testigos — vence', dias: 5 } ]
+      },
+      {
+        id: 'conciliacion_1',
+        nombre: 'Conciliación',
+        labelFecha: 'Fecha de la audiencia de conciliación',
+        tipo: 'manual'
       },
       {
         id: 'sentencia',
@@ -1479,11 +1497,14 @@ function sumarDiasHabiles(inicioStr, dias) {
 }
 
 function diasHabilesRestantes(fechaStr) {
-  // Días hábiles de oficina (L-V) desde hoy hasta fechaStr inclusive
+  // El día del evento = 0, el día anterior = 1, etc.
+  // Cuenta días hábiles estrictamente entre hoy y la fecha (sin incluir hoy)
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   const v = fromISO(fechaStr);
   if (v < hoy) return null;
+  if (v.getTime() === hoy.getTime()) return 0;
   let c = 0, cur = new Date(hoy);
+  cur.setDate(cur.getDate() + 1);
   while (cur <= v) { if (esDiaHabil(cur)) c++; cur.setDate(cur.getDate()+1); }
   return c;
 }
