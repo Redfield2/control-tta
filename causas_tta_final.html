@@ -1414,8 +1414,8 @@ function calcularPlazosParaCausa(causa) {
   const etapaDef = proc.etapas.find(e => e.id === causa.etapa);
   if (!etapaDef) return plazos;
 
-  const fechaNotif = causa.fechaNotif;
-  const fechaManual = causa.fechaManual;
+  const fechaNotif = causa.fechaNotif ? String(causa.fechaNotif).substring(0, 10) : null;
+  const fechaManual = causa.fechaManual ? String(causa.fechaManual).substring(0, 10) : null;
   const ajustes = causa.ajustesPlazos || {};
 
   const mkPlazo = (key, res, nombre) => {
@@ -2220,8 +2220,9 @@ function abrirEditar(id) {
   document.getElementById('f-etapa').value = c.etapa || '';
   onEtapaChange();
 
-  document.getElementById('f-fecha-notif').value  = c.fechaNotif  || '';
-  document.getElementById('f-fecha-manual').value = c.fechaManual || '';
+  const cleanDate = s => s ? String(s).substring(0, 10) : '';
+  document.getElementById('f-fecha-notif').value  = cleanDate(c.fechaNotif);
+  document.getElementById('f-fecha-manual').value = cleanDate(c.fechaManual);
 
   const repCheck = document.getElementById('f-reposicion');
   if (repCheck) {
@@ -2229,7 +2230,7 @@ function abrirEditar(id) {
     if (c.reposicionDeducida) {
       document.getElementById('reposicion-resolucion-group').style.display = 'block';
       const rr = document.getElementById('f-resolucion-reposicion');
-      if (rr) rr.value = c.fechaResolucionReposicion || '';
+      if (rr) rr.value = cleanDate(c.fechaResolucionReposicion);
     }
   }
 
