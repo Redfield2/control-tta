@@ -813,7 +813,7 @@
               </tr>
             </thead>
             <tbody id="pendientes-body">
-              <tr><td colspan="7" class="empty-table">Sin causas con plazos vigentes</td></tr>
+              <tr><td colspan="9" class="empty-table">Sin causas con plazos vigentes</td></tr>
             </tbody>
           </table>
         </div>
@@ -1499,20 +1499,34 @@ async function loginSubmit() {
 
     // Avance automático de etapas
     let hayAvances = false;
+    const _nav = new Date();
+    const hoyAvance = toISO(new Date(_nav.getFullYear(), _nav.getMonth(), _nav.getDate()));
+    // Mapa de avances automáticos al iniciar sesión (mismo criterio que verificarAvanceEtapa)
+    const mapaAvances = {
+      general:      [{ etapa: 'auto_prueba', siguiente: 'obs_prueba', key: 'auto_prueba_venc', usarDiaSiguiente: true }],
+      vulneracion:  [{ etapa: 'auto_prueba', siguiente: 'sentencia',  key: 'auto_prueba_venc', usarDiaSiguiente: false }],
+      infraccional: [{ etapa: 'auto_prueba', siguiente: 'sentencia',  key: 'auto_prueba_venc', usarDiaSiguiente: false }],
+      acta_denuncia:[{ etapa: 'prueba',      siguiente: 'sentencia',  key: 'prueba_venc',      usarDiaSiguiente: false }],
+    };
     causas.forEach((c, idx) => {
-      if (c.procedimiento === 'general' && c.etapa === 'auto_prueba') {
+      const reglas = mapaAvances[c.procedimiento] || [];
+      reglas.forEach(r => {
+        if (c.etapa !== r.etapa) return;
+        if (c.reposicionDeducida) return;
         const plazos = calcularPlazosParaCausa(c);
-        const vencProbatorio = plazos.find(p => p.key === 'auto_prueba_venc');
-        if (vencProbatorio?.fecha && vencProbatorio.fecha < toISO(new Date()) && !c.reposicionDeducida) {
-          causas[idx].etapa = 'obs_prueba';
-          causas[idx].fechaNotif = diaSiguiente(vencProbatorio.fecha);
+        const venc = plazos.find(p => p.key === r.key);
+        if (venc?.fecha && venc.fecha < hoyAvance) {
+          causas[idx].etapa = r.siguiente;
+          if (r.usarDiaSiguiente) causas[idx].fechaNotif = diaSiguiente(venc.fecha);
           hayAvances = true;
         }
-      }
+      });
     });
     if (hayAvances) {
       localStorage.setItem('causas_tta_v2', JSON.stringify(causas));
-      for (const ca of causas.filter(c => c.etapa === 'obs_prueba')) {
+      // Sincronizar todas las causas que avanzaron (no solo obs_prueba)
+      const etapasAvanzadas = new Set(['obs_prueba','sentencia']);
+      for (const ca of causas.filter(c => etapasAvanzadas.has(c.etapa))) {
         try {
           await fetch(url + '?clave=' + encodeURIComponent(clave), {
             method: 'POST',
@@ -1603,7 +1617,7 @@ function diasHabilesRestantes(fechaStr) {
   if (v.getTime() === hoy.getTime()) return 0;
   let c = 0, cur = new Date(hoy);
   cur.setDate(cur.getDate() + 1);
-  while (cur <= v) { if (esDiaHabil(cur)) c++; cur.setDate(cur.getDate()+1); }
+  while (cur <= v) { if (esDiaHabilJudicial(cur)) c++; cur.setDate(cur.getDate()+1); }
   return c;
 }
 
@@ -1656,7 +1670,7 @@ function calcularPlazosParaCausa(causa) {
       const inicioStr = siguienteDiaHabilJudicial(fechaNotif);
       const res = sumarDiasHabiles(inicioStr, diasUsar);
       const keyPrincipal = `${causa.etapa}_venc`;
-      plazos.push(mkPlazo(keyPrincipal, res, etapaDef.nombre + ' — vence'));
+      plazos.push(mkPlazo(keyPrincipal, res, etapaDef.nombre));
 
       // Reposición contra auto de prueba (5 dh, siempre disponible)
       if (etapaDef.tieneReposicion) {
@@ -1769,8 +1783,9 @@ function renderAlertas() {
       if (c.plazoscumplidos?.[p.key]) return;
       if (p.fecha === hoyISO) alertas.push({ causa: c, plazo: p });
     });
-    // Audiencias de hoy
+    // Audiencias de hoy (excluir cumplidas)
     (c.audiencias || []).forEach((a, i) => {
+      if (a.cumplida) return;
       if (a.fecha === hoyISO) {
         alertas.push({ causa: c, plazo: { nombre: a.tipo || 'Audiencia', fecha: a.fecha, hora: a.hora || '', key: `aud_${i}` } });
       }
@@ -1926,12 +1941,12 @@ function renderPendientes() {
   const body = document.getElementById('pendientes-body');
   const cardsCont = document.getElementById('pendientes-cards');
   if (!filas.length) {
-    body.innerHTML = '<tr><td colspan="7" class="empty-table">Sin plazos vigentes</td></tr>';
+    body.innerHTML = '<tr><td colspan="9" class="empty-table">Sin plazos vigentes</td></tr>';
     if (cardsCont) cardsCont.innerHTML = '<div class="empty-cards">Sin plazos vigentes</div>';
     return;
   }
 
-  body.innerHTML = filas.map(({ causa: c, plazo: p, dr }) => {
+  body.innerHTML = filas.map(({ causa: c, plazo: p, dr, esAudiencia }) => {
     const ab = ABOGADOS[c.abogado] || ABOGADOS['Desconocido'];
     const procNombre  = PROCEDIMIENTOS[c.procedimiento]?.nombre || '—';
     const etapaNombre = getEtapaNombre(c.procedimiento, c.etapa) || '—';
@@ -1953,7 +1968,7 @@ function renderPendientes() {
       <td><span class="etapa-badge">${etapaNombre}</span> ${avanceBtn}</td>
       <td class="plazo" style="font-size:0.72rem;color:var(--text2)">${p.nombre.replace(/ — vence(?: \(reiniciado\))?/g, '')}</td>
       <td class="plazo">${fechaCol}</td>
-      <td>${chipDias(dr)} ${esAudiencia ? `<button class="btn-cumplir" title="Marcar audiencia como realizada" onclick="event.stopPropagation();toggleAudienciaCumplida('${c.id}','${plazo.key}')">☐</button>` : ''}</td>
+      <td>${chipDias(dr)} ${esAudiencia ? `<button class="btn-cumplir" title="Marcar audiencia como realizada" onclick="event.stopPropagation();toggleAudienciaCumplida('${c.id}','${p.key}')">☐</button>` : ''}</td>
       <td class="dp-cell"><span class="dp-icon ${c.gestiones?.delegacion?.hecho ? 'dp-si' : 'dp-no'}" title="${c.gestiones?.delegacion?.hecho ? 'Delegación presentada' : 'Sin delegación'}">${c.gestiones?.delegacion?.hecho ? '✔' : '—'}</span></td>
       <td><span class="abogado-chip" style="color:${ab.color};background:${ab.bg}">${c.abogado}</span></td>
     </tr>`;
@@ -2168,11 +2183,13 @@ function limpiarFormulario() {
   document.getElementById('f-abogado').value = 'Felipe';
   document.getElementById('f-etapa').innerHTML = '<option value="">— Seleccionar etapa —</option>';
   ['etapa-group','fecha-notif-group','fecha-manual-group','plazos-group',
-   
-   'reposicion-group','reposicion-fields','reposicion-resolucion-group'].forEach(id => {
+   'reposicion-group','reposicion-fields','reposicion-resolucion-group',
+   'sentencia-resultado-group','sentencia-resultado-fields','sentencia-apelacion-group'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
+  const sentResLimp = document.getElementById('f-sentencia-resultado');
+  if (sentResLimp) sentResLimp.value = '';
   ['g-delegacion','g-testigos','g-correo','g-documentos'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.checked = false;
@@ -2184,11 +2201,13 @@ function onProcedimientoChange() {
   const proc = document.getElementById('f-procedimiento').value;
   document.getElementById('f-etapa').innerHTML = '<option value="">— Seleccionar etapa —</option>';
   ['etapa-group','fecha-notif-group','fecha-manual-group','plazos-group',
-   
-   'reposicion-group','reposicion-fields','reposicion-resolucion-group'].forEach(id => {
+   'reposicion-group','reposicion-fields','reposicion-resolucion-group',
+   'sentencia-resultado-group','sentencia-resultado-fields','sentencia-apelacion-group'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
+  const sentResLimp = document.getElementById('f-sentencia-resultado');
+  if (sentResLimp) sentResLimp.value = '';
 
   if (!proc) return;
 
@@ -2356,14 +2375,16 @@ function descargarRespaldo() {
 function toggleAudienciaCumplida(causaId, audKey) {
   const c = causas.find(x => String(x.id) === String(causaId));
   if (!c || !c.audiencias) return;
-  // audKey = "aud_N" → índice N
+  // audKey = "aud_N" → índice N en el momento del render
+  // Para ser robusto, buscamos por índice pero verificamos que coincida
   const idx = parseInt(audKey.replace('aud_', ''));
-  if (isNaN(idx) || !c.audiencias[idx]) return;
+  if (isNaN(idx) || idx < 0 || idx >= c.audiencias.length) return;
+  const _hn = new Date();
+  const hoyStr = `${_hn.getFullYear()}-${String(_hn.getMonth()+1).padStart(2,'0')}-${String(_hn.getDate()).padStart(2,'0')}`;
   if (c.audiencias[idx].cumplida) {
     delete c.audiencias[idx].cumplida;
   } else {
-    const hoy = new Date();
-    c.audiencias[idx].cumplida = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${String(hoy.getDate()).padStart(2,'0')}`;
+    c.audiencias[idx].cumplida = hoyStr;
   }
   sincronizarCausa(causaId);
   renderAlertas(); renderPendientes(); renderExpedientes();
@@ -2390,7 +2411,7 @@ async function guardarCausa() {
     fechaResolucionReposicion: document.getElementById('f-resolucion-reposicion')?.value || '',
     sentenciaResultado: document.getElementById('f-sentencia-resultado')?.value || '',
     fechaApelacion: document.getElementById('f-fecha-apelacion')?.value || '',
-    diasPersonalizados: diasEl ? parseInt(diasEl.value || '0') : null,
+    diasPersonalizados: diasEl ? (parseInt(diasEl.value) || null) : null,
     observaciones: document.getElementById('f-obs').value.trim(),
     gestiones: {
       delegacion: { hecho: document.getElementById('g-delegacion').checked, apoderado: document.getElementById('g-delegacion-apoderado').value.trim() },
@@ -2400,6 +2421,7 @@ async function guardarCausa() {
     },
     audiencias: leerAudiencias(),
     ajustesPlazos: editingId ? (causas.find(c=>c.id===editingId)?.ajustesPlazos || {}) : {},
+    plazoscumplidos: editingId ? (causas.find(c=>c.id===editingId)?.plazoscumplidos || {}) : {},
     creadoEn: editingId ? (causas.find(c=>c.id===editingId)?.creadoEn || new Date().toISOString()) : new Date().toISOString(),
   };
 
