@@ -2125,7 +2125,12 @@ function agregarAudiencia(datos) {
   const fecha = datos?.fecha || '';
   const hora  = datos?.hora  || '';
   const nota  = datos?.nota  || '';
-  const opcionesConSeleccion = tipos.map(t => `<option value="${t}" ${t === tipo ? 'selected' : ''}>${t}</option>`).join('');
+  // Comparación normalizada: ignorar diferencias de mayúsculas/espacios
+  const normalizar = s => s.trim().toLowerCase();
+  const tipoEnLista = tipos.some(t => normalizar(t) === normalizar(tipo));
+  // Si el tipo guardado no está en la lista actual, agregarlo para que no se pierda
+  const tiposEfectivos = (tipo && !tipoEnLista) ? [...tipos, tipo] : tipos;
+  const opcionesConSeleccion = tiposEfectivos.map(t => `<option value="${t}" ${normalizar(t) === normalizar(tipo) ? 'selected' : ''}>${t}</option>`).join('');
   const inputStyle = "background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:'Syne',sans-serif;font-size:0.78rem;padding:0.45rem 0.6rem";
 
   const row = document.createElement('div');
@@ -2419,7 +2424,16 @@ async function guardarCausa() {
       correo:     { hecho: document.getElementById('g-correo').checked },
       documentos: { hecho: document.getElementById('g-documentos').checked },
     },
-    audiencias: leerAudiencias(),
+    audiencias: (() => {
+      const leidas = leerAudiencias();
+      // Si el formulario no cargó audiencias pero la causa ya tenía,
+      // preservar las existentes para evitar borrado accidental
+      if (leidas.length === 0 && editingId) {
+        const anterior = causas.find(c => String(c.id) === String(editingId));
+        if (anterior?.audiencias?.length > 0) return anterior.audiencias;
+      }
+      return leidas;
+    })(),
     ajustesPlazos: editingId ? (causas.find(c=>c.id===editingId)?.ajustesPlazos || {}) : {},
     plazoscumplidos: editingId ? (causas.find(c=>c.id===editingId)?.plazoscumplidos || {}) : {},
     creadoEn: editingId ? (causas.find(c=>c.id===editingId)?.creadoEn || new Date().toISOString()) : new Date().toISOString(),
