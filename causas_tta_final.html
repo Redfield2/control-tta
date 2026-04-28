@@ -1494,11 +1494,81 @@ async function loginSubmit() {
     // Clave correcta — guardar en sessionStorage y entrar
     sessionStorage.setItem('ctt_clave', clave);
     sessionStorage.setItem('ctt_url', url);
-    causas = Array.isArray(data) ? data : [];
+    const desdeSheet = Array.isArray(data) ? data : [];
+    // Detectar columnas faltantes en el Sheet. Si el Sheet no tiene la
+    // columna `audiencias`, todas las causas vuelven sin ese campo
+    // (undefined), lo que causa que las audiencias desaparezcan al login.
+    if (desdeSheet.length > 0 && !('audiencias' in desdeSheet[0])) {
+      console.error('[TTA] ⚠ El Google Sheet NO tiene la columna `audiencias`. Las audiencias se perderán al recargar. Agrega esa columna a la fila 1 del Sheet.');
+      alert('⚠ El Google Sheet no tiene la columna "audiencias".\n\n' +
+            'Las audiencias guardadas no se están persistiendo. ' +
+            'Agrega la columna "audiencias" en la fila 1 del Sheet ' +
+            '(después de "plazoscumplidos") y vuelve a iniciar sesión.\n\n' +
+            'Las audiencias guardadas localmente se restaurarán automáticamente.');
+    }
+    // Detectar audiencias corruptas reportadas por el Apps Script v2
+    // (si actualizaste el script). Si una audiencia viene como
+    // {__corrupto: true, raw: "..."}, se tratará como [] aquí pero
+    // la reconciliación con localStorage debería restaurarla.
+    let huboCorrupcion = false;
+    desdeSheet.forEach(c => {
+      if (c.audiencias && !Array.isArray(c.audiencias) && c.audiencias.__corrupto) {
+        console.warn(`[TTA] Sheet reportó audiencia corrupta en causa ${c.id}:`, c.audiencias.raw);
+        c.audiencias = [];
+        huboCorrupcion = true;
+      }
+    });
+
+    // ── RECONCILIACIÓN CON LOCALSTORAGE ──
+    // Google Sheets ocasionalmente corrompe celdas largas o con caracteres
+    // especiales (comillas tipográficas, JSON re-interpretado, etc.). Si una
+    // causa del localStorage tiene MÁS audiencias o gestiones que la del Sheet,
+    // se prefiere la versión local y se re-sincroniza al Sheet. Esto recupera
+    // automáticamente datos perdidos por glitches de Sheets.
+    const local = (() => {
+      try { return JSON.parse(localStorage.getItem('causas_tta_v2') || '[]'); }
+      catch { return []; }
+    })();
+    const localPorId = new Map(local.map(c => [String(c.id), c]));
+    const idsRecuperados = new Set();
+    causas = desdeSheet.map(cs => {
+      const cl = localPorId.get(String(cs.id));
+      if (!cl) return cs;
+      const audSheet = Array.isArray(cs.audiencias) ? cs.audiencias : [];
+      const audLocal = Array.isArray(cl.audiencias) ? cl.audiencias : [];
+      // Si local tiene más audiencias que el Sheet, recuperarlas
+      if (audLocal.length > audSheet.length) {
+        idsRecuperados.add(String(cs.id));
+        return { ...cs, audiencias: audLocal };
+      }
+      return cs;
+    });
+    // También agregar causas locales que no están en el Sheet (por ejemplo,
+    // creadas offline o eliminadas por error en el Sheet)
+    desdeSheet.forEach(c => localPorId.delete(String(c.id)));
+    if (localPorId.size > 0) {
+      for (const huerfana of localPorId.values()) {
+        causas.push(huerfana);
+        idsRecuperados.add(String(huerfana.id));
+      }
+    }
     localStorage.setItem('causas_tta_v2', JSON.stringify(causas));
+    // Re-sincronizar al Sheet las causas que recuperamos
+    if (idsRecuperados.size > 0) {
+      console.warn(`[TTA] Recuperadas ${idsRecuperados.size} causa(s) desde localStorage.`);
+      for (const ca of causas.filter(c => idsRecuperados.has(String(c.id)))) {
+        try {
+          await fetch(url + '?clave=' + encodeURIComponent(clave), {
+            method: 'POST',
+            body: JSON.stringify({ action: 'save', causa: ca, clave }),
+          });
+        } catch {}
+      }
+    }
 
     // Avance automático de etapas
     let hayAvances = false;
+    const idsAvanzados = new Set(); // sólo sincronizar las que efectivamente avanzaron
     const _nav = new Date();
     const hoyAvance = toISO(new Date(_nav.getFullYear(), _nav.getMonth(), _nav.getDate()));
     // Mapa de avances automáticos al iniciar sesión (mismo criterio que verificarAvanceEtapa)
@@ -1516,17 +1586,21 @@ async function loginSubmit() {
         const plazos = calcularPlazosParaCausa(c);
         const venc = plazos.find(p => p.key === r.key);
         if (venc?.fecha && venc.fecha < hoyAvance) {
+          // Respaldar fechaNotif original antes de sobrescribir, para trazabilidad
+          if (r.usarDiaSiguiente && c.fechaNotif && !c.fechaNotifPrevia) {
+            causas[idx].fechaNotifPrevia = c.fechaNotif;
+          }
           causas[idx].etapa = r.siguiente;
           if (r.usarDiaSiguiente) causas[idx].fechaNotif = diaSiguiente(venc.fecha);
+          idsAvanzados.add(String(c.id));
           hayAvances = true;
         }
       });
     });
     if (hayAvances) {
       localStorage.setItem('causas_tta_v2', JSON.stringify(causas));
-      // Sincronizar todas las causas que avanzaron (no solo obs_prueba)
-      const etapasAvanzadas = new Set(['obs_prueba','sentencia']);
-      for (const ca of causas.filter(c => etapasAvanzadas.has(c.etapa))) {
+      // Sincronizar SOLO las causas que efectivamente avanzaron en este login
+      for (const ca of causas.filter(c => idsAvanzados.has(String(c.id)))) {
         try {
           await fetch(url + '?clave=' + encodeURIComponent(clave), {
             method: 'POST',
@@ -2121,31 +2195,73 @@ function getTiposAudiencia() {
 
 function agregarAudiencia(datos) {
   const tipos = getTiposAudiencia();
-  const tipo  = datos?.tipo  || '';
-  const fecha = datos?.fecha || '';
-  const hora  = datos?.hora  || '';
-  const nota  = datos?.nota  || '';
+  // Normalización defensiva: aceptar null/undefined/no-string sin romper
+  const tipo  = String(datos?.tipo  ?? '');
+  const fecha = String(datos?.fecha ?? '');
+  const hora  = String(datos?.hora  ?? '');
+  const nota  = String(datos?.nota  ?? '');
   // Comparación normalizada: ignorar diferencias de mayúsculas/espacios
-  const normalizar = s => s.trim().toLowerCase();
+  const normalizar = s => String(s ?? '').trim().toLowerCase();
   const tipoEnLista = tipos.some(t => normalizar(t) === normalizar(tipo));
   // Si el tipo guardado no está en la lista actual, agregarlo para que no se pierda
   const tiposEfectivos = (tipo && !tipoEnLista) ? [...tipos, tipo] : tipos;
-  const opcionesConSeleccion = tiposEfectivos.map(t => `<option value="${t}" ${normalizar(t) === normalizar(tipo) ? 'selected' : ''}>${t}</option>`).join('');
   const inputStyle = "background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:'Syne',sans-serif;font-size:0.78rem;padding:0.45rem 0.6rem";
 
   const row = document.createElement('div');
   row.className = 'gestion-item';
   row.style.cssText = 'flex-wrap:wrap;gap:0.45rem;align-items:center';
-  row.innerHTML = `
-    <select data-field="tipo" style="flex:2;min-width:160px;${inputStyle}">
-      <option value="">— Tipo de audiencia —</option>
-      ${opcionesConSeleccion}
-    </select>
-    <input data-field="fecha" type="date" value="${fecha}" style="flex:1;min-width:120px;${inputStyle}">
-    <input data-field="hora" type="time" value="${hora}" style="flex:1;min-width:95px;${inputStyle}" placeholder="HH:MM">
-    <input data-field="nota" type="text" value="${nota}" placeholder="Nota (opcional)" style="flex:3;min-width:120px;${inputStyle}">
-    <button type="button" onclick="this.parentElement.remove()" style="background:transparent;border:none;color:var(--danger);font-size:0.9rem;cursor:pointer;padding:0.2rem 0.4rem;border-radius:3px" title="Eliminar">✕</button>
-  `;
+
+  // Construir el SELECT con DOM API (escape automático de comillas, < >, &, etc.)
+  const sel = document.createElement('select');
+  sel.setAttribute('data-field', 'tipo');
+  sel.style.cssText = 'flex:2;min-width:160px;' + inputStyle;
+  const placeholderOpt = document.createElement('option');
+  placeholderOpt.value = '';
+  placeholderOpt.textContent = '— Tipo de audiencia —';
+  sel.appendChild(placeholderOpt);
+  tiposEfectivos.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t;            // .value escapa automáticamente
+    opt.textContent = t;      // .textContent escapa automáticamente
+    if (normalizar(t) === normalizar(tipo)) opt.selected = true;
+    sel.appendChild(opt);
+  });
+
+  const inFecha = document.createElement('input');
+  inFecha.setAttribute('data-field', 'fecha');
+  inFecha.type = 'date';
+  inFecha.value = fecha;      // .value escapa automáticamente
+  inFecha.style.cssText = 'flex:1;min-width:120px;' + inputStyle;
+
+  const inHora = document.createElement('input');
+  inHora.setAttribute('data-field', 'hora');
+  inHora.type = 'time';
+  inHora.value = hora;
+  inHora.placeholder = 'HH:MM';
+  inHora.style.cssText = 'flex:1;min-width:95px;' + inputStyle;
+
+  const inNota = document.createElement('input');
+  inNota.setAttribute('data-field', 'nota');
+  inNota.type = 'text';
+  inNota.value = nota;        // CRÍTICO: aquí la asignación por propiedad DOM evita
+                              // que comillas dobles trunquen el atributo y rompan
+                              // el resto de la fila (causa raíz del bug histórico
+                              // de audiencias que desaparecían).
+  inNota.placeholder = 'Nota (opcional)';
+  inNota.style.cssText = 'flex:3;min-width:120px;' + inputStyle;
+
+  const btnDel = document.createElement('button');
+  btnDel.type = 'button';
+  btnDel.title = 'Eliminar';
+  btnDel.textContent = '✕';
+  btnDel.style.cssText = 'background:transparent;border:none;color:var(--danger);font-size:0.9rem;cursor:pointer;padding:0.2rem 0.4rem;border-radius:3px';
+  btnDel.addEventListener('click', () => row.remove());
+
+  row.appendChild(sel);
+  row.appendChild(inFecha);
+  row.appendChild(inHora);
+  row.appendChild(inNota);
+  row.appendChild(btnDel);
   document.getElementById('audiencias-lista').appendChild(row);
 }
 
@@ -2228,18 +2344,28 @@ function onProcedimientoChange() {
 function onEtapaChange() {
   const proc    = document.getElementById('f-procedimiento').value;
   const etapaId = document.getElementById('f-etapa').value;
+  // Determinar qué campo de fecha usaría la nueva etapa
+  const etapaDefNueva = (proc && etapaId)
+    ? PROCEDIMIENTOS[proc]?.etapas.find(e => e.id === etapaId)
+    : null;
+  const usaFechaNotif  = etapaDefNueva && (etapaDefNueva.tipo === 'auto' || etapaDefNueva.tipo === 'auto_si_hay');
+  const usaFechaManual = etapaDefNueva && etapaDefNueva.tipo === 'manual';
+
   ['fecha-notif-group','fecha-manual-group','plazos-group',
    'reposicion-group','reposicion-fields','reposicion-resolucion-group',
    'sentencia-resultado-group','sentencia-resultado-fields','sentencia-apelacion-group'].forEach(id => {
     document.getElementById(id).style.display = 'none';
   });
-  document.getElementById('f-fecha-notif').value  = '';
-  document.getElementById('f-fecha-manual').value = '';
+  // Sólo borrar el campo de fecha que NO va a usar la nueva etapa.
+  // Esto evita perder la fecha cuando el usuario simplemente cambia entre
+  // etapas del mismo tipo (auto ↔ auto, manual ↔ manual).
+  if (!usaFechaNotif)  document.getElementById('f-fecha-notif').value  = '';
+  if (!usaFechaManual) document.getElementById('f-fecha-manual').value = '';
   document.getElementById('f-reposicion').checked = false;
   document.getElementById('f-sentencia-resultado').value = '';
 
   if (!proc || !etapaId) return;
-  const etapaDef = PROCEDIMIENTOS[proc]?.etapas.find(e => e.id === etapaId);
+  const etapaDef = etapaDefNueva;
   if (!etapaDef) return;
 
   // Campo resultado sentencia y apelación
@@ -2426,11 +2552,24 @@ async function guardarCausa() {
     },
     audiencias: (() => {
       const leidas = leerAudiencias();
-      // Si el formulario no cargó audiencias pero la causa ya tenía,
-      // preservar las existentes para evitar borrado accidental
-      if (leidas.length === 0 && editingId) {
-        const anterior = causas.find(c => String(c.id) === String(editingId));
-        if (anterior?.audiencias?.length > 0) return anterior.audiencias;
+      if (!editingId) return leidas;
+      const anterior = causas.find(c => String(c.id) === String(editingId));
+      const previas = anterior?.audiencias || [];
+      // Caso 1: vaciado total — preservar las anteriores (evita borrado accidental)
+      if (leidas.length === 0 && previas.length > 0) return previas;
+      // Caso 2: pérdida parcial sospechosa (se leyeron menos de las que había
+      // y no hay filas en el DOM con datos parciales que justifiquen la diferencia)
+      const filasEnDom = document.getElementById('audiencias-lista').children.length;
+      if (leidas.length < previas.length && filasEnDom < previas.length) {
+        const perdidas = previas.length - leidas.length;
+        const ok = confirm(
+          `⚠ Se detectó posible pérdida de audiencias.\n\n` +
+          `Antes había: ${previas.length}\n` +
+          `Ahora hay:   ${leidas.length}\n` +
+          `Faltarían:   ${perdidas}\n\n` +
+          `¿Conservar las audiencias previas? (recomendado: Aceptar)`
+        );
+        if (ok) return previas;
       }
       return leidas;
     })(),
