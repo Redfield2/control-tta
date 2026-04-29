@@ -1570,6 +1570,14 @@ async function loginSubmit() {
     const localPorId = new Map(local.map(c => [String(c.id), c]));
     const idsRecuperados = new Set();
     causas = desdeSheet.map(cs => {
+      // Normalizar reposicionDeducida: Sheets devuelve string 'TRUE'/'FALSE'
+      // En JS 'FALSE' es truthy → normalizamos a boolean real aquí
+      const rep = cs.reposicionDeducida;
+      if (rep === 'TRUE' || rep === 'true' || rep === true) {
+        cs = { ...cs, reposicionDeducida: true };
+      } else if (rep === 'FALSE' || rep === 'false' || rep === false || rep === '' || rep == null) {
+        cs = { ...cs, reposicionDeducida: false };
+      }
       const cl = localPorId.get(String(cs.id));
       if (!cl) return cs;
       const audSheet = Array.isArray(cs.audiencias) ? cs.audiencias : [];
@@ -1607,8 +1615,7 @@ async function loginSubmit() {
     // Avance automático de etapas
     let hayAvances = false;
     const idsAvanzados = new Set(); // sólo sincronizar las que efectivamente avanzaron
-    const _nav = new Date();
-    const hoyAvance = toISO(new Date(_nav.getFullYear(), _nav.getMonth(), _nav.getDate()));
+    const hoyAvance = ahoraChile().iso;
     // Mapa de avances automáticos al iniciar sesión (mismo criterio que verificarAvanceEtapa)
     const mapaAvances = {
       general:      [{ etapa: 'auto_prueba', siguiente: 'obs_prueba', key: 'auto_prueba_venc', usarDiaSiguiente: true }],
@@ -1723,7 +1730,7 @@ function sumarDiasHabiles(inicioStr, dias) {
 function diasHabilesRestantes(fechaStr) {
   // El día del evento = 0, el día anterior = 1, etc.
   // Cuenta días hábiles estrictamente entre hoy y la fecha (sin incluir hoy)
-  const _n = new Date(); const hoy = new Date(_n.getFullYear(), _n.getMonth(), _n.getDate());
+  const hoy = ahoraChile().date;
   const v = fromISO(fechaStr);
   if (v < hoy) return null;
   if (v.getTime() === hoy.getTime()) return 0;
@@ -1837,7 +1844,7 @@ function calcularPlazosParaCausa(causa) {
 // Verificar si corresponde avanzar etapa automáticamente
 function verificarAvanceEtapa(causa) {
   if (!causa.procedimiento || !causa.etapa) return null;
-  const _nd = new Date(); const hoy = toISO(new Date(_nd.getFullYear(), _nd.getMonth(), _nd.getDate()));
+  const hoy = ahoraChile().iso;
 
   // Mapa de avances automáticos
   const avances = {
@@ -1885,8 +1892,7 @@ function proximoVencimiento(causa) {
 const UMBRAL = 7;
 
 function renderAlertas() {
-  const _n = new Date(); const hoy = new Date(_n.getFullYear(), _n.getMonth(), _n.getDate());
-  const hoyISO = toISO(hoy);
+  const { iso: hoyISO, date: hoy } = ahoraChile();
   document.getElementById('fecha-hoy').textContent = 'Hoy: ' + formatFecha(hoyISO);
 
   const alertas = [];
@@ -1960,6 +1966,23 @@ function sortBy(col, tab) {
 // ── Helpers ──
 const UMBRAL_VENCIDO = 5; // días hábiles de oficina — mostrar vencidos hasta 5 días
 
+// Hora actual en zona America/Santiago (Chile), independiente del reloj del PC
+function ahoraChile() {
+  const now = new Date();
+  // Formatear en zona Santiago para extraer componentes locales
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Santiago',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  });
+  const parts = Object.fromEntries(fmt.formatToParts(now).map(p => [p.type, p.value]));
+  return {
+    iso:    `${parts.year}-${parts.month}-${parts.day}`,   // 'YYYY-MM-DD'
+    hora:   `${parts.hour}:${parts.minute}`,               // 'HH:MM'
+    date:   new Date(`${parts.year}-${parts.month}-${parts.day}T00:00:00`),
+  };
+}
+
 // Escapa caracteres especiales HTML para prevenir XSS en innerHTML
 function esc(s) {
   if (s == null) return '';
@@ -2002,7 +2025,7 @@ function abreviarProc(proc) {
 }
 
 function chipDias(dr) {
-  if (dr === null) return '<span class="dias-chip vencido">VENCIDO</span>';
+  if (dr === null || dr < 0) return '<span class="dias-chip vencido">VENCIDO</span>';
   if (dr === 0)    return '<span class="dias-chip urgente">HOY</span>';
   if (dr === 1)    return '<span class="dias-chip proximo">1 dh (Mañana)</span>';
   if (dr <= 3)     return `<span class="dias-chip proximo">${dr} dh</span>`;
@@ -2015,8 +2038,7 @@ function chipDias(dr) {
 function renderPendientes() {
   const busq = (document.getElementById('filtro-busqueda')?.value || '').toLowerCase();
   const abog = document.getElementById('filtro-abogado')?.value || '';
-  const _n = new Date(); const hoy = new Date(_n.getFullYear(), _n.getMonth(), _n.getDate());
-  const hoyISO = toISO(hoy);
+  const { iso: hoyISO, date: hoy, hora: horaActual } = ahoraChile();
 
   // Calcular 1 día hábil anterior a hoy (límite para mostrar vencidos)
   let limiteVencidos = new Date(hoy);
@@ -2049,7 +2071,10 @@ function renderPendientes() {
       if (a.cumplida) return; // ocultar cumplidas
       if (a.fecha < limiteVencidosISO) return;
       const dr = diasHabilesRestantes(a.fecha);
-      filas.push({ causa: c, plazo: { nombre: a.tipo || 'Audiencia', fecha: a.fecha, hora: a.hora || '', esSabado: false, key: `aud_${i}`, ajustado: false }, dr, esAudiencia: true });
+      // Checkbox solo si es HOY y la hora ya pasó (o no tiene hora definida)
+      const horaOk = !a.hora || horaActual >= a.hora;
+      const puedeMarcar = dr === 0 && horaOk;
+      filas.push({ causa: c, plazo: { nombre: a.tipo || 'Audiencia', fecha: a.fecha, hora: a.hora || '', esSabado: false, key: `aud_${i}`, ajustado: false }, dr, esAudiencia: true, puedeMarcarAudiencia: puedeMarcar });
     });
   });
 
@@ -2070,7 +2095,7 @@ function renderPendientes() {
     return;
   }
 
-  body.innerHTML = filas.map(({ causa: c, plazo: p, dr, esAudiencia }) => {
+  body.innerHTML = filas.map(({ causa: c, plazo: p, dr, esAudiencia, puedeMarcarAudiencia }) => {
     const ab = ABOGADOS[c.abogado] || ABOGADOS['Desconocido'];
     const procNombre  = PROCEDIMIENTOS[c.procedimiento]?.nombre || '—';
     const etapaNombre = simplificarEtapa(getEtapaNombre(c.procedimiento, c.etapa)) || '—';
@@ -2084,15 +2109,18 @@ function renderPendientes() {
     const avanceBtn = avance ? `<button class="btn-avance" onclick="event.stopPropagation();avanzarEtapa('${c.id}')">↑ avanzar etapa</button>` : '';
 
     let rowClass = '';
-    if (dr === null) rowClass = 'row-vencido';
+    if (dr === null || dr < 0) rowClass = 'row-vencido';
     else if (dr === 0) rowClass = 'row-hoy';
     else if (dr <= 3) rowClass = 'row-proximo';
 
     const esConciliacionPlazo = (c.etapa === 'conciliacion_1' || c.etapa === 'conciliacion_2') && p.key === `${c.etapa}_manual`;
-    const mostrarCumplir = esAudiencia || esConciliacionPlazo;
+    const mostrarCumplir = (esAudiencia && puedeMarcarAudiencia) || esConciliacionPlazo;
     const fnCumplir = esAudiencia
       ? `toggleAudienciaCumplida('${c.id}','${p.key}')`
       : `confirmarCumplido('${c.id}','${p.key}')`;
+    const esVencido = dr === null;
+    const mostrarCumplirVencido = esVencido && !mostrarCumplir;
+    const fnCumplirVencido = `confirmarCumplido('${c.id}','${p.key}')`;
     return `<tr class="${rowClass}" onclick="verDetalle('${c.id}')">
       <td class="rit">${esc(c.rit) || '—'}</td>
       <td class="nombre">${esc(c.nombre) || '—'}</td>
@@ -2100,7 +2128,7 @@ function renderPendientes() {
       <td><span class="etapa-badge">${esc(etapaNombre)}</span> ${avanceBtn}</td>
       <td class="plazo" style="font-size:0.72rem;color:var(--text2)">${simplificarPlazo(p.nombre.replace(/ — vence(?: \(reiniciado\))?/g, ''))}</td>
       <td class="plazo">${fechaCol}</td>
-      <td>${chipDias(dr)} ${mostrarCumplir ? `<button class="btn-cumplir" title="Marcar como realizada" onclick="event.stopPropagation();${fnCumplir}">☐</button>` : ''}</td>
+      <td>${chipDias(dr)} ${mostrarCumplir ? `<button class="btn-cumplir" title="Marcar como realizada" onclick="event.stopPropagation();${fnCumplir}">☐</button>` : ''}${mostrarCumplirVencido ? `<button class="btn-cumplir" title="Quitar del listado" onclick="event.stopPropagation();${fnCumplirVencido}">☐</button>` : ''}</td>
       <td class="dp-cell"><span class="dp-icon ${c.gestiones?.delegacion?.hecho ? 'dp-si' : 'dp-no'}" title="${c.gestiones?.delegacion?.hecho ? 'Delegación presentada' : 'Sin delegación'}">${c.gestiones?.delegacion?.hecho ? '✔' : '—'}</span></td>
       <td><span class="abogado-chip" style="color:${ab.color};background:${ab.bg}">${esc(c.abogado)}</span></td>
     </tr>`;
@@ -2112,7 +2140,7 @@ function renderPendientes() {
       const ab = ABOGADOS[c.abogado] || ABOGADOS['Desconocido'];
       const sabNote = p.esSabado ? ' <span style="color:var(--danger);font-weight:700;font-size:0.6rem">(SÁB)</span>' : '';
       let cardClass = '';
-      if (dr === null) cardClass = 'card-vencido';
+      if (dr === null || dr < 0) cardClass = 'card-vencido';
       else if (dr === 0) cardClass = 'card-hoy';
       else if (dr <= 3) cardClass = 'card-proximo';
       return `<div class="causa-card ${cardClass}" onclick="verDetalle('${c.id}')">
@@ -2618,8 +2646,7 @@ function toggleAudienciaCumplida(causaId, audKey) {
   const rit = c.rit || '';
   const ok = window.confirm(`¿Marcar audiencia de "${rit}" como realizada?\nLa fila saldrá del listado de plazos vigentes.`);
   if (!ok) return;
-  const _hn = new Date();
-  const hoyStr = `${_hn.getFullYear()}-${String(_hn.getMonth()+1).padStart(2,'0')}-${String(_hn.getDate()).padStart(2,'0')}`;
+  const hoyStr = ahoraChile().iso;
   if (c.audiencias[idx].cumplida) {
     delete c.audiencias[idx].cumplida;
   } else {
@@ -2984,7 +3011,7 @@ async function toggleCumplido(causaId, key) {
   if (causas[idx].plazoscumplidos[key]) {
     delete causas[idx].plazoscumplidos[key];
   } else {
-    causas[idx].plazoscumplidos[key] = toISO(new Date());
+    causas[idx].plazoscumplidos[key] = ahoraChile().iso;
   }
   await sincronizarCausa(causaId);
   renderAlertas(); renderPendientes(); renderExpedientes();
