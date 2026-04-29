@@ -47,8 +47,8 @@
     font-family: 'Syne', sans-serif;
     background: var(--bg);
     color: var(--text);
-    min-height: 100vh;
-    overflow-x: hidden;
+    height: 100vh;
+    overflow: hidden;
   }
 
   /* ══ LOGIN ══ */
@@ -127,7 +127,7 @@
   }
 
   /* ══ APP ══ */
-  #app { display: none; min-height: 100vh; flex-direction: column; }
+  #app { display: none; height: 100vh; flex-direction: column; overflow: hidden; }
   #app.visible { display: flex; }
 
   .topbar {
@@ -167,7 +167,7 @@
   .btn-danger:hover { background: rgba(217,79,61,0.08); }
 
   /* ══ MAIN ══ */
-  .main { flex: 1; padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; }
+  .main { flex: 1; min-height: 0; overflow: hidden; padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; }
 
   /* ══ PANEL GENÉRICO ══ */
   .panel {
@@ -306,13 +306,11 @@
   .filter-input { width: 190px; }
 
   .table-wrap { overflow-x: auto; }
-  #tab-pendientes .panel:last-child .table-wrap {
-    max-height: 55vh; overflow-y: auto;
-  }
 
   table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
 
   thead tr { background: var(--bg3); border-bottom: 2px solid var(--border2); }
+  thead th { position: sticky; top: 0; z-index: 2; background: var(--bg3); }
 
   th {
     padding: 0.45rem 0.6rem; text-align: left;
@@ -378,7 +376,7 @@
 
   /* ══ VISTA MÓVIL — TARJETAS ══ */
   .cards-wrap { display: none; flex-direction: column; gap: 0.55rem; padding: 0.25rem 0; }
-  #tab-pendientes .panel:last-child .cards-wrap { max-height: 55vh; overflow-y: auto; }
+  #tab-pendientes .panel:last-child .cards-wrap { flex: 1; overflow-y: auto; }
 
   .causa-card {
     background: var(--bg2);
@@ -623,6 +621,31 @@
 
   .tab-content { display: none; }
   .tab-content.active { display: flex; flex-direction: column; gap: 1.25rem; }
+
+  /* Pendientes: todo fijo excepto el listado */
+  #tab-pendientes {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+  #tab-pendientes.active {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+  #tab-pendientes > .panel:last-of-type {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  #tab-pendientes > .panel:last-of-type .table-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: auto;
+  }
 
   /* ══ DILIGENCIAS ICONOS ══ */
   .dilig-row {
@@ -937,6 +960,7 @@
         <div class="form-group" id="fecha-notif-group" style="display:none">
           <label id="fecha-notif-label">Fecha de notificación</label>
           <input type="date" id="f-fecha-notif" onchange="calcularPlazos()">
+          <span id="recordatorio-audiencias" style="display:none;color:var(--danger);font-size:0.72rem;font-weight:600;margin-top:0.3rem">⚠ Recuerda agendar audiencias testimoniales</span>
         </div>
 
         <!-- FECHA MANUAL -->
@@ -970,6 +994,7 @@
         <div class="form-group" id="reposicion-resolucion-group" style="display:none">
           <label>Fecha resolución de la reposición</label>
           <input type="date" id="f-resolucion-reposicion" onchange="calcularPlazos()">
+          <span id="recordatorio-audiencias-rep" style="display:none;color:var(--danger);font-size:0.72rem;font-weight:600;margin-top:0.3rem">⚠ Recuerda agendar audiencias testimoniales</span>
         </div>
 
         <!-- RESULTADO SENTENCIA (visible solo en etapa sentencia_dictada) -->
@@ -1755,6 +1780,11 @@ function calcularPlazosParaCausa(causa) {
       const nombrePlazo = etapaDef.id === 'sentencia_dictada' ? 'Apelar' : etapaDef.nombre;
       plazos.push(mkPlazo(keyPrincipal, res, nombrePlazo));
 
+      // Autorización para no apelar (5 dh, solo sentencia_dictada)
+      if (etapaDef.id === 'sentencia_dictada') {
+        plazos.push(mkPlazo(`${causa.etapa}_aut_no_apelar`, sumarDiasHabiles(inicioStr, 5), 'Aut. no apelar'));
+      }
+
       // Reposición contra auto de prueba (5 dh, siempre disponible)
       if (etapaDef.tieneReposicion) {
         const kRep = `${causa.etapa}_rep`;
@@ -2046,7 +2076,7 @@ function renderPendientes() {
     const etapaNombre = simplificarEtapa(getEtapaNombre(c.procedimiento, c.etapa)) || '—';
     const sabNote = p.esSabado ? ` <span style="color:var(--danger);font-weight:700;font-size:0.6rem">(SÁB)</span>` : '';
     const horaNote = p.hora ? ` <span style="color:var(--text2);font-size:0.65rem;font-family:'JetBrains Mono',monospace">(${p.hora})</span>`
-      : (c.fechaManualHora && (c.etapa === 'conciliacion_1' || c.etapa === 'conciliacion_2'))
+      : (c.fechaManualHora && /^\d{2}:\d{2}$/.test(String(c.fechaManualHora).substring(0,5)) && (c.etapa === 'conciliacion_1' || c.etapa === 'conciliacion_2'))
         ? ` <span style="color:var(--text2);font-size:0.65rem;font-family:'JetBrains Mono',monospace">(${c.fechaManualHora})</span>`
         : '';
     const fechaCol = formatFecha(p.fecha) + horaNote + sabNote;
@@ -2058,6 +2088,11 @@ function renderPendientes() {
     else if (dr === 0) rowClass = 'row-hoy';
     else if (dr <= 3) rowClass = 'row-proximo';
 
+    const esConciliacionPlazo = (c.etapa === 'conciliacion_1' || c.etapa === 'conciliacion_2') && p.key === `${c.etapa}_manual`;
+    const mostrarCumplir = esAudiencia || esConciliacionPlazo;
+    const fnCumplir = esAudiencia
+      ? `toggleAudienciaCumplida('${c.id}','${p.key}')`
+      : `confirmarCumplido('${c.id}','${p.key}')`;
     return `<tr class="${rowClass}" onclick="verDetalle('${c.id}')">
       <td class="rit">${esc(c.rit) || '—'}</td>
       <td class="nombre">${esc(c.nombre) || '—'}</td>
@@ -2065,7 +2100,7 @@ function renderPendientes() {
       <td><span class="etapa-badge">${esc(etapaNombre)}</span> ${avanceBtn}</td>
       <td class="plazo" style="font-size:0.72rem;color:var(--text2)">${simplificarPlazo(p.nombre.replace(/ — vence(?: \(reiniciado\))?/g, ''))}</td>
       <td class="plazo">${fechaCol}</td>
-      <td>${chipDias(dr)} ${esAudiencia ? `<button class="btn-cumplir" title="Marcar audiencia como realizada" onclick="event.stopPropagation();toggleAudienciaCumplida('${c.id}','${p.key}')">☐</button>` : ''}</td>
+      <td>${chipDias(dr)} ${mostrarCumplir ? `<button class="btn-cumplir" title="Marcar como realizada" onclick="event.stopPropagation();${fnCumplir}">☐</button>` : ''}</td>
       <td class="dp-cell"><span class="dp-icon ${c.gestiones?.delegacion?.hecho ? 'dp-si' : 'dp-no'}" title="${c.gestiones?.delegacion?.hecho ? 'Delegación presentada' : 'Sin delegación'}">${c.gestiones?.delegacion?.hecho ? '✔' : '—'}</span></td>
       <td><span class="abogado-chip" style="color:${ab.color};background:${ab.bg}">${esc(c.abogado)}</span></td>
     </tr>`;
@@ -2089,7 +2124,7 @@ function renderPendientes() {
         <div class="card-nombre">${esc(c.nombre) || '—'}</div>
         <div class="card-row3">
           <div class="card-plazo-info">
-            <span class="card-plazo-fecha">${formatFecha(p.fecha)}${p.hora ? ` (${esc(p.hora)})` : (c.fechaManualHora && (c.etapa === 'conciliacion_1' || c.etapa === 'conciliacion_2') ? ` (${esc(c.fechaManualHora)})` : '')}${sabNote}</span> · ${esc(p.nombre)}
+            <span class="card-plazo-fecha">${formatFecha(p.fecha)}${p.hora ? ` (${esc(p.hora)})` : (c.fechaManualHora && /^\d{2}:\d{2}$/.test(String(c.fechaManualHora).substring(0,5)) && (c.etapa === 'conciliacion_1' || c.etapa === 'conciliacion_2') ? ` (${esc(c.fechaManualHora)})` : '')}${sabNote}</span> · ${esc(p.nombre)}
           </div>
         </div>
       </div>`;
@@ -2207,6 +2242,8 @@ function simplificarPlazo(nombre) {
   let n = nombre;
   // "Período de Prueba …" → "Probatorio"
   n = n.replace(/^Período de Prueba\b.*/i, 'Probatorio');
+  // "Observaciones a la Prueba …" → "Observaciones"
+  n = n.replace(/^Observaciones a la Prueba\b.*/i, 'Observaciones');
   // "Percepción documental (art. 348 bis CPC)" → "Percepción documental"
   n = n.replace(/\s*\(art\.[^)]+\)/gi, '').trim();
   return n;
@@ -2403,6 +2440,11 @@ function onEtapaChange() {
     document.getElementById('f-fecha-manual').value = '';
     document.getElementById('f-fecha-manual-hora').value = '';
   }
+  // Ocultar recordatorios (se mostrarán de nuevo si la etapa los requiere)
+  const recEl = document.getElementById('recordatorio-audiencias');
+  if (recEl) recEl.style.display = 'none';
+  const recRepEl = document.getElementById('recordatorio-audiencias-rep');
+  if (recRepEl) recRepEl.style.display = 'none';
   document.getElementById('f-reposicion').checked = false;
   document.getElementById('f-sentencia-resultado').value = '';
 
@@ -2424,6 +2466,12 @@ function onEtapaChange() {
       document.getElementById('reposicion-group').style.display = 'block';
       document.getElementById('reposicion-fields').style.display = 'block';
     }
+    // Recordatorio audiencias testimoniales: en auto de prueba y en resolución reposición
+    const esAutoPrueba = etapaId === 'auto_prueba' || etapaId === 'prueba';
+    const recEl = document.getElementById('recordatorio-audiencias');
+    if (recEl) recEl.style.display = esAutoPrueba ? 'block' : 'none';
+    const recRepEl = document.getElementById('recordatorio-audiencias-rep');
+    if (recRepEl) recRepEl.style.display = (esAutoPrueba && etapaDef.tieneReposicion) ? 'block' : 'none';
     if (etapaDef.inputDias) {
       let diasInput = document.getElementById('f-dias-personalizados');
       if (!diasInput) {
@@ -2508,6 +2556,10 @@ function calcularPlazos() {
     const res = sumarDiasHabiles(inicioStr, diasUsar);
     const labelNombreModal = etapaDef.id === 'sentencia_dictada' ? 'Apelar' : etapaDef.nombre;
     html += `<div class="plazo-item"><span class="plazo-nombre">${labelNombreModal} — vence</span><span class="plazo-fecha">${formatFecha(res.fecha)}${sab(res)}</span></div>`;
+    if (etapaDef.id === 'sentencia_dictada') {
+      const resAut = sumarDiasHabiles(inicioStr, 5);
+      html += `<div class="plazo-item"><span class="plazo-nombre">Aut. no apelar — vence</span><span class="plazo-fecha">${formatFecha(resAut.fecha)}${sab(resAut)}</span></div>`;
+    }
     if (etapaDef.sub) {
       etapaDef.sub.forEach(s => {
         const rs = sumarDiasHabiles(inicioStr, s.dias);
@@ -2525,7 +2577,7 @@ function calcularPlazos() {
   // Renombrar label según etapa
   const etapaIdLabel = document.getElementById('f-etapa')?.value;
   const labelEl = document.querySelector('#plazos-group label');
-  if (labelEl) labelEl.textContent = etapaIdLabel === 'sentencia_dictada' ? 'Plazo para apelar' : 'Plazos calculados';
+  if (labelEl) labelEl.textContent = etapaIdLabel === 'sentencia_dictada' ? 'Plazos de sentencia' : 'Plazos calculados';
 }
 
 // Reasignar el evento onchange al input de fecha cuando cambia etapa
@@ -2549,13 +2601,23 @@ function descargarRespaldo() {
   URL.revokeObjectURL(url);
 }
 
+// Confirmación antes de marcar cumplido (conciliación y plazos)
+function confirmarCumplido(causaId, key) {
+  const c = causas.find(x => String(x.id) === String(causaId));
+  const rit = c?.rit || causaId;
+  const ok = window.confirm(`¿Marcar "${rit}" como realizada?\nLa causa saldrá del listado de plazos vigentes.`);
+  if (!ok) return;
+  toggleCumplido(causaId, key);
+}
+
 function toggleAudienciaCumplida(causaId, audKey) {
   const c = causas.find(x => String(x.id) === String(causaId));
   if (!c || !c.audiencias) return;
-  // audKey = "aud_N" → índice N en el momento del render
-  // Para ser robusto, buscamos por índice pero verificamos que coincida
   const idx = parseInt(audKey.replace('aud_', ''));
   if (isNaN(idx) || idx < 0 || idx >= c.audiencias.length) return;
+  const rit = c.rit || '';
+  const ok = window.confirm(`¿Marcar audiencia de "${rit}" como realizada?\nLa fila saldrá del listado de plazos vigentes.`);
+  if (!ok) return;
   const _hn = new Date();
   const hoyStr = `${_hn.getFullYear()}-${String(_hn.getMonth()+1).padStart(2,'0')}-${String(_hn.getDate()).padStart(2,'0')}`;
   if (c.audiencias[idx].cumplida) {
@@ -2751,7 +2813,7 @@ function verDetalle(id) {
         </div>
         <div class="detalle-field">
           <span class="detalle-field-label">Fecha referencia</span>
-          <span class="detalle-field-value" style="font-family:'JetBrains Mono',monospace">${formatFecha(c.fechaNotif||c.fechaManual)}${c.fechaManualHora ? ` <span style="font-size:0.72rem;color:var(--text2)">(${esc(c.fechaManualHora)})</span>` : ''}</span>
+          <span class="detalle-field-value" style="font-family:'JetBrains Mono',monospace">${formatFecha(c.fechaNotif||c.fechaManual)}${(c.fechaManualHora && /^\d{2}:\d{2}$/.test(String(c.fechaManualHora).substring(0,5))) ? ` <span style="font-size:0.72rem;color:var(--text2)">(${esc(c.fechaManualHora)})</span>` : ''}</span>
         </div>
         ${c.sentenciaResultado ? `<div class="detalle-field" style="grid-column:1/-1">
           <span class="detalle-field-label">Resultado sentencia</span>
